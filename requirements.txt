@@ -1,0 +1,34 @@
+# Core scientific computing dependencies
+pytfa
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+
+# Jupyter and IPython for interactive development
+ipython
+jupyter
+
+# Web framework and related packages
+flask>=2.0.0
+flask-cors
+gunicorn
+
+# Data visualization for web
+plotly
+bokeh
+
+# Additional useful packages for web development
+requests
+python-dotenv
+
+# Optional (needed for MILP and pytfa optimization)
+# cplex
+
+# Development and testing
+pytest
+pytest-flask
+
+# For deployment
+psutil
