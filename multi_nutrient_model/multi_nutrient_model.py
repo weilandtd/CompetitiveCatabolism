@@ -164,6 +164,8 @@ def fluxes(x,A,p):
     """
     
     L,G,F,K,I,IA = x
+
+    
     
     vE, k, Imax, C, KI_lipo, KA_glut4, KI_GL, omega, \
     lam, gamma, beta, kappa, alpha, VR, VFK, VLG, KI_F,  \
