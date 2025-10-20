@@ -2,6 +2,7 @@
 
 The code in this folder implements a mechanistic multi‑nutrient metabolic model of fasted metabolic homeostatsis and a set of analyses used to explore insulin action, nutrient competition, and metabolic phenotypes. It provides reusable simulation functions and Jupyter notebooks that reproduce the figures and experiments from the study. To use, install the dependcies listed below and open the notebooks or import the simulation functions from the Python module.
 
+## Installation
 
 Install dependencies via pip using a requirements file:
 
@@ -21,6 +22,8 @@ seaborn
 statannotations
 ```
 
+## Contents
+
 | File | Description |
 | --- | --- |
 | multi_nutrient_model.py | Python file containing functions for clamp, dynamic, and sensitivity simulations |
@@ -33,5 +36,6 @@ statannotations
 | GTT_ITT_insulin_receptor_ko.ipynb | Notebook simulating loss of muscle and adipose insulin receptors |
 | obesity_simulations.ipynb | Notebook simulating obesity in the multi-nutrient model (related to Figures 6A, 6B, 6D and S6A, S6B) |
 | obesity_NHANES.ipynb | Notebook comparing obesity simulation to human data (related to Figure 6C) |
+| robustness_obesity_prediction.ipynb | Notebook performing robustness analysis of obesity predictions using sensitivity analysis |
 | sensitivity_analysis.ipynb | Notebook simulating parameter changes and interventions for metabolic syndrome (related to Figures 7 and S6C) |
 
