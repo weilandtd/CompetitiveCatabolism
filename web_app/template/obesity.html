@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Obesity Simulation - Competitive Catabolism</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>⚖️ Obesity Simulation</h1>
+        <p>Metabolic Effects of Adiposity with NHANES Data Comparison</p>
+        <a href="/" class="btn-secondary">← Back to Home</a>
+    </header>
+    
+    <div class="container">
+        <div class="simulation-layout">
+            <div class="controls-panel">
+                <h2>Simulation Parameters</h2>
+                
+                <div class="form-group">
+                    <label for="fat_fractions">Fat Fractions (comma-separated)</label>
+                    <input type="text" id="fat_fractions" value="1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0">
+                    <small>Relative to baseline adiposity (1.0 = normal)</small>
+                </div>
+                
+                <h3>Optional Perturbation (shown as dashed line)</h3>
+                
+                <div class="form-group">
+                    <label for="perturbation_param">Perturbation Parameter</label>
+                    <select id="perturbation_param">
+                        <option value="">None</option>
+                        <option value="alpha">Lipolysis Activity (alpha)</option>
+                        <option value="beta">Fatty Acid Oxidation (beta)</option>
+                        <option value="gamma">Glucose Oxidation (gamma)</option>
+                        <option value="KI_lipo">Insulin Inhibition Lipolysis</option>
+                        <option value="KA_glut4">Insulin Activation Glucose Uptake</option>
+                        <option value="VFK">Ketogenesis Activity (VFK)</option>
+                        <option value="VR">Reesterification Activity (VR)</option>
+                        <option value="Imax">Insulin Secretion Capacity (Imax)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="perturbation_value">Perturbation Value (fold change)</label>
+                    <input type="number" id="perturbation_value" value="1.0" min="0" max="5" step="0.1">
+                </div>
+                
+                <h3>Additional Parameter Modifications (Optional)</h3>
+                <div id="additional-params"></div>
+                <button id="add-param-btn" class="btn-secondary">+ Add Parameter</button>
+                
+                <button id="run-btn" class="btn-primary">Run Simulation</button>
+                <div id="loading" class="loading" style="display: none;">
+                    Running simulation...
+                </div>
+            </div>
+            
+            <div class="results-panel">
+                <h2>Simulation Results</h2>
+                <div id="error-msg" class="error-msg" style="display: none;"></div>
+                <div id="results">
+                    <p class="placeholder">Configure parameters and click "Run Simulation" to see results.</p>
+                </div>
+                <div id="plot-container" style="display: none;">
+                    <img id="plot-img" alt="Simulation Plot">
+                    <p class="info-text">
+                        <strong>Note:</strong> Simulation results (solid lines) are compared with NHANES human data (scattered points) 
+                        when available. Dashed lines show perturbed conditions.
+                    </p>
+                    <button id="download-btn" class="btn-secondary" style="margin-top: 20px;">Download Data (CSV)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let simulationData = null;
+        
+        document.getElementById('add-param-btn').addEventListener('click', function() {
+            const container = document.getElementById('additional-params');
+            const paramDiv = document.createElement('div');
+            paramDiv.className = 'param-row';
+            paramDiv.innerHTML = `
+                <select class="param-name">
+                    <option value="vE">Energy Expenditure (vE)</option>
+                    <option value="alpha">Lipolysis Activity (alpha)</option>
+                    <option value="beta">Fatty Acid Oxidation (beta)</option>
+                    <option value="gamma">Glucose Oxidation (gamma)</option>
+                </select>
+                <input type="number" class="param-value" step="0.1" value="1.0">
+                <button class="btn-remove" onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(paramDiv);
+        });
+        
+        async function runSimulation() {
+            const fatFractions = document.getElementById('fat_fractions').value;
+            const perturbationParam = document.getElementById('perturbation_param').value;
+            const perturbationValue = document.getElementById('perturbation_value').value;
+            
+            const additionalParams = {};
+            document.querySelectorAll('.param-row').forEach(row => {
+                const name = row.querySelector('.param-name').value;
+                const value = row.querySelector('.param-value').value;
+                additionalParams[name] = parseFloat(value);
+            });
+            
+            const data = {
+                fat_fractions: fatFractions,
+                perturbation_param: perturbationParam || null,
+                perturbation_value: parseFloat(perturbationValue),
+                parameters: additionalParams
+            };
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error-msg').style.display = 'none';
+            document.getElementById('run-btn').disabled = true;
+            
+            try {
+                const response = await fetch('/api/run_obesity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('results').innerHTML = '';
+                    document.getElementById('plot-container').style.display = 'block';
+                    document.getElementById('plot-img').src = 'data:image/png;base64,' + result.plot;
+                    simulationData = result.data;
+                } else {
+                    document.getElementById('error-msg').textContent = 'Error: ' + result.error;
+                    document.getElementById('error-msg').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('error-msg').textContent = 'Error: ' + error.message;
+                document.getElementById('error-msg').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('run-btn').disabled = false;
+            }
+        }
+        
+        document.getElementById('run-btn').addEventListener('click', runSimulation);
+        
+        // Run default simulation on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('results').innerHTML = '<p class="placeholder">Loading default simulation...</p>';
+            runSimulation();
+        });
+        
+        document.getElementById('download-btn').addEventListener('click', function() {
+            if (simulationData) {
+                const blob = new Blob([simulationData], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'obesity_simulation_results.csv';
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tolerance Tests - Competitive Catabolism</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>📊 Tolerance Tests</h1>
+        <p>GTT and ITT with Insulin Receptor Knockouts</p>
+        <a href="/" class="btn-secondary">← Back to Home</a>
+    </header>
+    
+    <div class="container">
+        <div class="simulation-layout">
+            <div class="controls-panel">
+                <h2>Simulation Parameters</h2>
+                
+                <div class="form-group">
+                    <label for="test_type">Test Type</label>
+                    <select id="test_type">
+                        <option value="GTT">Glucose Tolerance Test (GTT)</option>
+                        <option value="ITT">Insulin Tolerance Test (ITT)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="knockout">Receptor Knockout</label>
+                    <select id="knockout">
+                        <option value="with_SI">Adipose Insulin Receptor K/O (AIRKO)</option>
+                        <option value="with_LI">Muscle Insulin Receptor K/O (MIRKO)</option>
+                        <option value="with_GI">Liver Insulin Receptor K/O (LIRKO)</option>
+                        <option value="with_FI">Ketogenesis Insulin Resistance</option>
+                    </select>
+                    <small>Simulates loss of insulin action in specific tissues</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="time_max">Total Simulation Time (min)</label>
+                    <input type="number" id="time_max" value="120" min="30" max="300" step="10">
+                </div>
+                
+                <div class="form-group">
+                    <label for="bolus_time">Bolus Time (min)</label>
+                    <input type="number" id="bolus_time" value="10" min="0" max="60" step="5">
+                </div>
+                
+                <h3>Additional Parameter Modifications (Optional)</h3>
+                <div id="additional-params"></div>
+                <button id="add-param-btn" class="btn-secondary">+ Add Parameter</button>
+                
+                <button id="run-btn" class="btn-primary">Run Simulation</button>
+                <div id="loading" class="loading" style="display: none;">
+                    Running simulation...
+                </div>
+            </div>
+            
+            <div class="results-panel">
+                <h2>Simulation Results</h2>
+                <div id="error-msg" class="error-msg" style="display: none;"></div>
+                <div id="results">
+                    <p class="placeholder">Configure parameters and click "Run Simulation" to see results.</p>
+                </div>
+                <div id="plot-container" style="display: none;">
+                    <img id="plot-img" alt="Simulation Plot">
+                    <button id="download-btn" class="btn-secondary" style="margin-top: 20px;">Download Data (CSV)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let simulationData = null;
+        
+        document.getElementById('add-param-btn').addEventListener('click', function() {
+            const container = document.getElementById('additional-params');
+            const paramDiv = document.createElement('div');
+            paramDiv.className = 'param-row';
+            paramDiv.innerHTML = `
+                <select class="param-name">
+                    <option value="vE">Energy Expenditure (vE)</option>
+                    <option value="alpha">Lipolysis Activity (alpha)</option>
+                    <option value="beta">Fatty Acid Oxidation (beta)</option>
+                    <option value="gamma">Glucose Oxidation (gamma)</option>
+                    <option value="Imax">Insulin Secretion (Imax)</option>
+                </select>
+                <input type="number" class="param-value" step="0.1" value="1.0">
+                <button class="btn-remove" onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(paramDiv);
+        });
+        
+        async function runSimulation() {
+            const testType = document.getElementById('test_type').value;
+            const knockout = document.getElementById('knockout').value;
+            const timeMax = document.getElementById('time_max').value;
+            const bolusTime = document.getElementById('bolus_time').value;
+            
+            const additionalParams = {};
+            document.querySelectorAll('.param-row').forEach(row => {
+                const name = row.querySelector('.param-name').value;
+                const value = row.querySelector('.param-value').value;
+                additionalParams[name] = parseFloat(value);
+            });
+            
+            const data = {
+                test_type: testType,
+                knockout: knockout,
+                time_max: parseFloat(timeMax),
+                bolus_time: parseFloat(bolusTime),
+                parameters: additionalParams
+            };
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error-msg').style.display = 'none';
+            document.getElementById('run-btn').disabled = true;
+            
+            try {
+                const response = await fetch('/api/run_tolerance_tests', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('results').innerHTML = '';
+                    document.getElementById('plot-container').style.display = 'block';
+                    document.getElementById('plot-img').src = 'data:image/png;base64,' + result.plot;
+                    simulationData = result.data;
+                } else {
+                    document.getElementById('error-msg').textContent = 'Error: ' + result.error;
+                    document.getElementById('error-msg').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('error-msg').textContent = 'Error: ' + error.message;
+                document.getElementById('error-msg').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('run-btn').disabled = false;
+            }
+        }
+        
+        document.getElementById('run-btn').addEventListener('click', runSimulation);
+        
+        // Run default simulation on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('results').innerHTML = '<p class="placeholder">Loading default simulation...</p>';
+            runSimulation();
+        });
+        
+        document.getElementById('download-btn').addEventListener('click', function() {
+            if (simulationData) {
+                const blob = new Blob([simulationData], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tolerance_test_results.csv';
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+        });
+    </script>
+</body>
+</html>

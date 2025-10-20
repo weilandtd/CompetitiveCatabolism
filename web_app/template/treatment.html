@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Treatment Strategies - Competitive Catabolism</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>💊 Treatment Strategies</h1>
+        <p>Sensitivity Analysis and Therapeutic Target Identification</p>
+        <a href="/" class="btn-secondary">← Back to Home</a>
+    </header>
+    
+    <div class="container">
+        <div class="simulation-layout">
+            <div class="controls-panel">
+                <h2>Simulation Parameters</h2>
+                
+                <h3>Disease State (Perturbation)</h3>
+                
+                <div class="form-group">
+                    <label for="perturbation_param">Disease Parameter</label>
+                    <select id="perturbation_param">
+                        <option value="alpha">Increased Lipolysis (alpha)</option>
+                        <option value="Imax">Reduced Insulin Secretion (Imax)</option>
+                        <option value="KI_lipo">Insulin Resistance - Lipolysis</option>
+                        <option value="KA_glut4">Insulin Resistance - Glucose Uptake</option>
+                        <option value="beta">Reduced Fatty Acid Oxidation</option>
+                        <option value="gamma">Reduced Glucose Oxidation</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="perturbation_fold">Disease Severity (fold change)</label>
+                    <input type="number" id="perturbation_fold" value="2.0" min="0.1" max="5" step="0.1">
+                    <small>Creates a "diseased" baseline state</small>
+                </div>
+                
+                <h3>Treatment Options</h3>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="auto_treatment" checked>
+                        Auto-select Top 3 Treatments (by sensitivity analysis)
+                    </label>
+                </div>
+                
+                <div id="manual-treatment" style="display: none;">
+                    <div class="form-group">
+                        <label for="treatment_params">Treatment Parameters (comma-separated)</label>
+                        <input type="text" id="treatment_params" placeholder="e.g., alpha, beta, VFK">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="treatment_folds">Treatment Fold Changes (comma-separated)</label>
+                        <input type="text" id="treatment_folds" placeholder="e.g., 0.5, 0.7, 0.8">
+                        <small>Typically &lt;1.0 to reduce/block activity</small>
+                    </div>
+                </div>
+                
+                <h3>Additional Parameter Modifications (Optional)</h3>
+                <div id="additional-params"></div>
+                <button id="add-param-btn" class="btn-secondary">+ Add Parameter</button>
+                
+                <button id="run-btn" class="btn-primary">Run Simulation</button>
+                <div id="loading" class="loading" style="display: none;">
+                    Running simulation and sensitivity analysis...
+                </div>
+            </div>
+            
+            <div class="results-panel">
+                <h2>Simulation Results</h2>
+                <div id="error-msg" class="error-msg" style="display: none;"></div>
+                <div id="results">
+                    <p class="placeholder">Configure disease state and click "Run Simulation" to identify optimal treatments.</p>
+                </div>
+                <div id="plot-container" style="display: none;">
+                    <img id="plot-img" alt="Simulation Plot">
+                    <div id="sensitivity-table" style="margin-top: 20px;">
+                        <h3>Top 10 Therapeutic Targets (by HOMA-IR sensitivity)</h3>
+                        <table id="sensitivity-data">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Parameter</th>
+                                    <th>Sensitivity</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <button id="download-btn" class="btn-secondary" style="margin-top: 20px;">Download Data (CSV)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let simulationData = null;
+        
+        // Toggle manual treatment inputs
+        document.getElementById('auto_treatment').addEventListener('change', function() {
+            document.getElementById('manual-treatment').style.display = 
+                this.checked ? 'none' : 'block';
+        });
+        
+        document.getElementById('add-param-btn').addEventListener('click', function() {
+            const container = document.getElementById('additional-params');
+            const paramDiv = document.createElement('div');
+            paramDiv.className = 'param-row';
+            paramDiv.innerHTML = `
+                <select class="param-name">
+                    <option value="vE">Energy Expenditure (vE)</option>
+                    <option value="alpha">Lipolysis Activity (alpha)</option>
+                    <option value="beta">Fatty Acid Oxidation (beta)</option>
+                    <option value="gamma">Glucose Oxidation (gamma)</option>
+                </select>
+                <input type="number" class="param-value" step="0.1" value="1.0">
+                <button class="btn-remove" onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(paramDiv);
+        });
+        
+        async function runSimulation() {
+            const perturbationParam = document.getElementById('perturbation_param').value;
+            const perturbationFold = document.getElementById('perturbation_fold').value;
+            const autoTreatment = document.getElementById('auto_treatment').checked;
+            
+            let treatmentParams = [];
+            let treatmentFolds = [];
+            
+            if (!autoTreatment) {
+                const paramsText = document.getElementById('treatment_params').value;
+                const foldsText = document.getElementById('treatment_folds').value;
+                
+                if (paramsText && foldsText) {
+                    treatmentParams = paramsText.split(',').map(s => s.trim());
+                    treatmentFolds = foldsText.split(',').map(s => parseFloat(s.trim()));
+                }
+            }
+            
+            const additionalParams = {};
+            document.querySelectorAll('.param-row').forEach(row => {
+                const name = row.querySelector('.param-name').value;
+                const value = row.querySelector('.param-value').value;
+                additionalParams[name] = parseFloat(value);
+            });
+            
+            const data = {
+                perturbation_param: perturbationParam,
+                perturbation_fold: parseFloat(perturbationFold),
+                treatment_params: JSON.stringify(treatmentParams),
+                treatment_folds: JSON.stringify(treatmentFolds),
+                parameters: additionalParams
+            };
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error-msg').style.display = 'none';
+            document.getElementById('run-btn').disabled = true;
+            
+            try {
+                const response = await fetch('/api/run_treatment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('results').innerHTML = '';
+                    document.getElementById('plot-container').style.display = 'block';
+                    document.getElementById('plot-img').src = 'data:image/png;base64,' + result.plot;
+                    simulationData = result.data;
+                    
+                    // Display sensitivity table
+                    if (result.top_perturbations) {
+                        const tbody = document.querySelector('#sensitivity-data tbody');
+                        tbody.innerHTML = '';
+                        result.top_perturbations.forEach((item, index) => {
+                            const row = tbody.insertRow();
+                            row.insertCell(0).textContent = index + 1;
+                            row.insertCell(1).textContent = item.parameter;
+                            row.insertCell(2).textContent = item.sensitivity.toFixed(3);
+                        });
+                    }
+                } else {
+                    document.getElementById('error-msg').textContent = 'Error: ' + result.error;
+                    document.getElementById('error-msg').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('error-msg').textContent = 'Error: ' + error.message;
+                document.getElementById('error-msg').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('run-btn').disabled = false;
+            }
+        }
+        
+        document.getElementById('run-btn').addEventListener('click', runSimulation);
+        
+        // Run default simulation on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('results').innerHTML = '<p class="placeholder">Loading default simulation...</p>';
+            runSimulation();
+        });
+        
+        document.getElementById('download-btn').addEventListener('click', function() {
+            if (simulationData) {
+                const blob = new Blob([simulationData], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'treatment_results.csv';
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+        });
+    </script>
+</body>
+</html>
