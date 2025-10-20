@@ -1,11 +1,3 @@
-Time,Glucose,Group,Genotype
-0, 74.07407407, 0, WT
-0, 88.88888889, 1, KO
-15, 377.7777778, 0, WT
-15, 385.1851852, 1, KO
-30, 355.5555556, 0, WT
-30, 381.4814815, 1, KO
-60, 233.3333333, 0, WT
-60, 262.962963, 1, KO
-120, 103.7037037, 0, WT
-120, 137.037037, 1, KO
+version https://git-lfs.github.com/spec/v1
+oid sha256:3346141552360fe815bd31e2f91ce31c9ca94d6afd9c33f9d79a0d37ea31b2f3
+size 255
