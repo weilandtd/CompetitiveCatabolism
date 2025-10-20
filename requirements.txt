@@ -5,6 +5,7 @@ scipy
 pandas
 matplotlib
 seaborn
+statannotations
 
 # Jupyter and IPython for interactive development
 ipython
