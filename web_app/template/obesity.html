@@ -58,7 +58,7 @@
                     <p class="placeholder">Configure parameters and click "Run Simulation" to see results.</p>
                 </div>
                 <div id="plot-container" style="display: none;">
-                    <img id="plot-img" alt="Simulation Plot">
+                    <div id="plots-grid" class="plots-grid"></div>
                     <p class="info-text">
                         <strong>Note:</strong> Simulation results (solid lines) are compared with NHANES human data (scattered points) 
                         when available. Dashed lines show perturbed conditions.
@@ -125,7 +125,28 @@
                 if (result.success) {
                     document.getElementById('results').innerHTML = '';
                     document.getElementById('plot-container').style.display = 'block';
-                    document.getElementById('plot-img').src = 'data:image/png;base64,' + result.plot;
+                    
+                    const plotsGrid = document.getElementById('plots-grid');
+                    plotsGrid.innerHTML = '';
+                    
+                    // Determine grid layout based on number of plots
+                    const numPlots = result.plots.length;
+                    if (numPlots <= 2) {
+                        plotsGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+                    } else if (numPlots <= 4) {
+                        plotsGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+                    } else {
+                        plotsGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                    }
+                    
+                    // Add each plot to the grid
+                    result.plots.forEach(plot => {
+                        const plotDiv = document.createElement('div');
+                        plotDiv.className = 'plot-item';
+                        plotDiv.innerHTML = plot.data;
+                        plotsGrid.appendChild(plotDiv);
+                    });
+                    
                     simulationData = result.data;
                 } else {
                     document.getElementById('error-msg').textContent = 'Error: ' + result.error;

@@ -35,6 +35,29 @@ def plot_to_base64(fig):
     plt.close(fig)
     return img_str
 
+def plot_to_svg(fig):
+    """Convert matplotlib figure to SVG string"""
+    buf = io.BytesIO()
+    fig.savefig(buf, format='svg', bbox_inches='tight')
+    buf.seek(0)
+    svg_str = buf.read().decode('utf-8')
+    plt.close(fig)
+    return svg_str
+
+def create_individual_plot(plot_func, **kwargs):
+    """Create an individual plot and return as SVG string
+    
+    Args:
+        plot_func: Function that creates and returns a matplotlib axis
+        **kwargs: Arguments to pass to plot_func
+    
+    Returns:
+        SVG string
+    """
+    fig, ax = plt.subplots(1, 1, figsize=(5, 4))
+    plot_func(ax, **kwargs)
+    return plot_to_svg(fig)
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -124,32 +147,33 @@ def run_dynamic():
         # Scale insulin concentration
         X['I'] = X['I'] / I0  * 5 # Scale to typical insulin levels Insulin in humnas
         
-        # Create plot
-        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-        axes = axes.flatten()
-        
+        # Create individual plots
         variables = ['G', 'F', 'K', 'I']
         labels = ['Glucose (mM)', 'Fatty acids (mM)', '3-Hydroxybutyrate (mM)', 'Insulin (a.u.)']
         
-        for i, (var, label) in enumerate(zip(variables, labels)):
-            axes[i].plot(X['time'], X[var], linewidth=2, color='black')
-            axes[i].axvline(time_perturbation, color='red', linestyle='--', alpha=0.5)
-            axes[i].set_xlabel('Time (min)')
-            axes[i].set_ylabel(label)
-            axes[i].set_title(f'{label.split(" ")[0]} Response')
-            sns.despine(ax=axes[i])
+        def plot_timeseries(ax, var, label):
+            ax.plot(X['time'], X[var], linewidth=2, color='black')
+            ax.axvline(time_perturbation, color='red', linestyle='--', alpha=0.5)
+            ax.set_xlabel('Time (min)')
+            ax.set_ylabel(label)
+            ax.set_title(f'{label.split(" ")[0]} Response')
+            sns.despine(ax=ax)
         
-        plt.tight_layout()
-        
-        # Convert plot to base64
-        img_str = plot_to_base64(fig)
+        plots = []
+        for var, label in zip(variables, labels):
+            plot_data = create_individual_plot(plot_timeseries, var=var, label=label)
+            plots.append({
+                'id': var,
+                'title': f'{label.split(" ")[0]} Response',
+                'data': plot_data
+            })
         
         # Prepare data for download
         data_csv = X[['time', 'G', 'F', 'K', 'L', 'I', 'IA']].to_csv(index=False)
         
         return jsonify({
             'success': True,
-            'plot': img_str,
+            'plots': plots,
             'data': data_csv
         })
         
@@ -211,68 +235,94 @@ def run_clamp():
         X_all = pd.concat(results)
         GIR_all = pd.concat(gir_results)
         
-        # Create plots
-        fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-        
-        # Time course plots
-        variables = ['G', 'F', 'K', 'GIR']
-        labels = ['Glucose (mM)', 'FFA (mM)', '3HB (mM)', 'GIR (a.u.)']
-        
-        for i, (var, label) in enumerate(zip(variables[:3], labels[:3])):
-            for ins_level in insulin_levels:
-                subset = X_all[X_all['insulin_level'] == ins_level]
-                axes[0, i].plot(subset['time'], subset[var], label=f'Insulin: {ins_level}')
-            axes[0, i].set_xlabel('Time (min)')
-            axes[0, i].set_ylabel(label)
-            axes[0, i].set_title(f'{label.split(" ")[0]} Time Course')
-            axes[0, i].legend()
-            sns.despine(ax=axes[0, i])
-        
-        # GIR time course
-        for ins_level in insulin_levels:
-            subset = GIR_all[GIR_all['insulin_level'] == ins_level]
-            axes[1, 0].plot(subset['time'], subset['GIR'], label=f'Insulin: {ins_level}')
-        axes[1, 0].set_xlabel('Time (min)')
-        axes[1, 0].set_ylabel('GIR (a.u.)')
-        axes[1, 0].set_title('Glucose Infusion Rate')
-        axes[1, 0].legend()
-        sns.despine(ax=axes[1, 0])
-        
-        # Steady state bar plots
         # Calculate steady state (last 20% of simulation)
         cutoff = time_max * 0.8
         X_ss = X_all[X_all['time'] > cutoff].groupby('insulin_level').mean().reset_index()
         GIR_ss = GIR_all[GIR_all['time'] > cutoff].groupby('insulin_level').mean().reset_index()
         
-        # Bar plot for glucose
-        axes[1, 1].bar(range(len(insulin_levels)), X_ss['G'], color='steelblue')
-        axes[1, 1].set_xticks(range(len(insulin_levels)))
-        axes[1, 1].set_xticklabels([f'{x}' for x in insulin_levels])
-        axes[1, 1].set_xlabel('Insulin Level')
-        axes[1, 1].set_ylabel('Glucose (mM)')
-        axes[1, 1].set_title('Steady State Glucose')
-        sns.despine(ax=axes[1, 1])
+        # Create individual plots
+        plots = []
         
-        # Bar plot for GIR
-        axes[1, 2].bar(range(len(insulin_levels)), GIR_ss['GIR'], color='coral')
-        axes[1, 2].set_xticks(range(len(insulin_levels)))
-        axes[1, 2].set_xticklabels([f'{x}' for x in insulin_levels])
-        axes[1, 2].set_xlabel('Insulin Level')
-        axes[1, 2].set_ylabel('GIR (a.u.)')
-        axes[1, 2].set_title('Steady State GIR')
-        sns.despine(ax=axes[1, 2])
+        # Time course plots for G, F, K
+        variables = ['G', 'F', 'K']
+        labels = ['Glucose (mM)', 'FFA (mM)', '3HB (mM)']
         
-        plt.tight_layout()
+        def plot_timecourse(ax, var, label):
+            for ins_level in insulin_levels:
+                subset = X_all[X_all['insulin_level'] == ins_level]
+                ax.plot(subset['time'], subset[var], label=f'Insulin: {ins_level}')
+            ax.set_xlabel('Time (min)')
+            ax.set_ylabel(label)
+            ax.set_title(f'{label.split(" ")[0]} Time Course')
+            ax.legend()
+            sns.despine(ax=ax)
         
-        # Convert plot to base64
-        img_str = plot_to_base64(fig)
+        for var, label in zip(variables, labels):
+            plot_data = create_individual_plot(plot_timecourse, var=var, label=label)
+            plots.append({
+                'id': f'{var}_timecourse',
+                'title': f'{label.split(" ")[0]} Time Course',
+                'data': plot_data
+            })
+        
+        # GIR time course
+        def plot_gir_timecourse(ax):
+            for ins_level in insulin_levels:
+                subset = GIR_all[GIR_all['insulin_level'] == ins_level]
+                ax.plot(subset['time'], subset['GIR'], label=f'Insulin: {ins_level}')
+            ax.set_xlabel('Time (min)')
+            ax.set_ylabel('GIR (a.u.)')
+            ax.set_title('Glucose Infusion Rate')
+            ax.legend()
+            sns.despine(ax=ax)
+        
+        plot_data = create_individual_plot(plot_gir_timecourse)
+        plots.append({
+            'id': 'GIR_timecourse',
+            'title': 'Glucose Infusion Rate',
+            'data': plot_data
+        })
+        
+        # Bar plot for steady state glucose
+        def plot_glucose_bar(ax):
+            ax.bar(range(len(insulin_levels)), X_ss['G'], color='steelblue')
+            ax.set_xticks(range(len(insulin_levels)))
+            ax.set_xticklabels([f'{x}' for x in insulin_levels])
+            ax.set_xlabel('Insulin Level')
+            ax.set_ylabel('Glucose (mM)')
+            ax.set_title('Steady State Glucose')
+            sns.despine(ax=ax)
+        
+        plot_data = create_individual_plot(plot_glucose_bar)
+        plots.append({
+            'id': 'G_steady_state',
+            'title': 'Steady State Glucose',
+            'data': plot_data
+        })
+        
+        # Bar plot for steady state GIR
+        def plot_gir_bar(ax):
+            ax.bar(range(len(insulin_levels)), GIR_ss['GIR'], color='coral')
+            ax.set_xticks(range(len(insulin_levels)))
+            ax.set_xticklabels([f'{x}' for x in insulin_levels])
+            ax.set_xlabel('Insulin Level')
+            ax.set_ylabel('GIR (a.u.)')
+            ax.set_title('Steady State GIR')
+            sns.despine(ax=ax)
+        
+        plot_data = create_individual_plot(plot_gir_bar)
+        plots.append({
+            'id': 'GIR_steady_state',
+            'title': 'Steady State GIR',
+            'data': plot_data
+        })
         
         # Prepare data
         data_csv = X_all.to_csv(index=False)
         
         return jsonify({
             'success': True,
-            'plot': img_str,
+            'plots': plots,
             'data': data_csv
         })
         
@@ -324,35 +374,46 @@ def run_tolerance_tests():
             X['G'] = X['G'] * 7
             X['I'] = X['I'] * 1.0
         
-        # Create plot
-        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+        # Create individual plots
+        plots = []
         
         # Plot glucose response
-        axes[0].plot(X_control['time'], X_control['G'], linewidth=2, 
-                    color='grey', label='Control')
-        axes[0].plot(X_ko['time'], X_ko['G'], linewidth=2, 
-                    color='steelblue', label='K/O', linestyle='--')
-        axes[0].set_xlabel('Time (min)')
-        axes[0].set_ylabel('Glucose (mM)')
-        axes[0].set_title(f'{test_type} - Glucose Response')
-        axes[0].legend()
-        sns.despine(ax=axes[0])
+        def plot_glucose_response(ax):
+            ax.plot(X_control['time'], X_control['G'], linewidth=2, 
+                       color='grey', label='Control')
+            ax.plot(X_ko['time'], X_ko['G'], linewidth=2, 
+                       color='steelblue', label='K/O', linestyle='--')
+            ax.set_xlabel('Time (min)')
+            ax.set_ylabel('Glucose (mM)')
+            ax.set_title(f'{test_type} - Glucose Response')
+            ax.legend()
+            sns.despine(ax=ax)
+        
+        plot_data = create_individual_plot(plot_glucose_response)
+        plots.append({
+            'id': 'glucose_response',
+            'title': f'{test_type} - Glucose Response',
+            'data': plot_data
+        })
         
         # Plot insulin response
-        axes[1].plot(X_control['time'], X_control['I'], linewidth=2, 
-                    color='grey', label='Control')
-        axes[1].plot(X_ko['time'], X_ko['I'], linewidth=2, 
-                    color='steelblue', label='K/O', linestyle='--')
-        axes[1].set_xlabel('Time (min)')
-        axes[1].set_ylabel('Insulin (a.u.)')
-        axes[1].set_title(f'{test_type} - Insulin Response')
-        axes[1].legend()
-        sns.despine(ax=axes[1])
+        def plot_insulin_response(ax):
+            ax.plot(X_control['time'], X_control['I'], linewidth=2, 
+                       color='grey', label='Control')
+            ax.plot(X_ko['time'], X_ko['I'], linewidth=2, 
+                       color='steelblue', label='K/O', linestyle='--')
+            ax.set_xlabel('Time (min)')
+            ax.set_ylabel('Insulin (a.u.)')
+            ax.set_title(f'{test_type} - Insulin Response')
+            ax.legend()
+            sns.despine(ax=ax)
         
-        plt.tight_layout()
-        
-        # Convert plot to base64
-        img_str = plot_to_base64(fig)
+        plot_data = create_individual_plot(plot_insulin_response)
+        plots.append({
+            'id': 'insulin_response',
+            'title': f'{test_type} - Insulin Response',
+            'data': plot_data
+        })
         
         # Prepare data
         X_control['group'] = 'Control'
@@ -361,7 +422,7 @@ def run_tolerance_tests():
         
         return jsonify({
             'success': True,
-            'plot': img_str,
+            'plots': plots,
             'data': data_csv
         })
         
@@ -444,20 +505,19 @@ def run_obesity():
         if os.path.exists(nhanes_file):
             df_nhanes = pd.read_csv(nhanes_file)
         
-        # Create plots
-        fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-        
+        # Create individual plots
+        plots = []
         variables = ['glucose', 'insulin', 'HOMA_IR']
         labels = ['Glucose (mM)', 'Insulin (a.u.)', 'HOMA-IR']
         
-        for i, (var, label) in enumerate(zip(variables, labels)):
+        def plot_adiposity(ax, var, label):
             # Plot model results
-            axes[i].plot(df_control['fat_fraction'], df_control[var], 
-                        linewidth=2, color='black', label='Model')
+            ax.plot(df_control['fat_fraction'], df_control[var], 
+                       linewidth=2, color='black', label='Model')
             
             if df_perturbed is not None:
-                axes[i].plot(df_perturbed['fat_fraction'], df_perturbed[var], 
-                           linewidth=2, color='red', linestyle='--', label='Perturbed')
+                ax.plot(df_perturbed['fat_fraction'], df_perturbed[var], 
+                          linewidth=2, color='red', linestyle='--', label='Perturbed')
             
             # Plot NHANES data if available
             if df_nhanes is not None and var in df_nhanes.columns:
@@ -467,20 +527,23 @@ def run_obesity():
                     if 'Sex' in df_nhanes.columns:
                         for sex, marker, color in [('Male', 'o', 'blue'), ('Female', 's', 'pink')]:
                             subset = df_nhanes[df_nhanes['Sex'] == sex]
-                            axes[i].scatter(subset['fat_fraction'], subset[var], 
-                                          alpha=0.3, s=10, marker=marker, 
-                                          color=color, label=f'{sex} (NHANES)')
+                            ax.scatter(subset['fat_fraction'], subset[var], 
+                                         alpha=0.3, s=10, marker=marker, 
+                                         color=color, label=f'{sex} (NHANES)')
             
-            axes[i].set_xlabel('Fat Fraction (relative to control)')
-            axes[i].set_ylabel(label)
-            axes[i].set_title(f'{label} vs Adiposity')
-            axes[i].legend()
-            sns.despine(ax=axes[i])
+            ax.set_xlabel('Fat Fraction (relative to control)')
+            ax.set_ylabel(label)
+            ax.set_title(f'{label} vs Adiposity')
+            ax.legend()
+            sns.despine(ax=ax)
         
-        plt.tight_layout()
-        
-        # Convert plot to base64
-        img_str = plot_to_base64(fig)
+        for var, label in zip(variables, labels):
+            plot_data = create_individual_plot(plot_adiposity, var=var, label=label)
+            plots.append({
+                'id': f'{var}_adiposity',
+                'title': f'{label} vs Adiposity',
+                'data': plot_data
+            })
         
         # Prepare data
         df_control['group'] = 'Control'
@@ -492,7 +555,7 @@ def run_obesity():
         
         return jsonify({
             'success': True,
-            'plot': img_str,
+            'plots': plots,
             'data': data_csv
         })
         
@@ -594,28 +657,30 @@ def run_treatment():
         
         df_treatment = pd.DataFrame(treatment_results)
         
-        # Create plot
-        fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-        
+        # Create individual plots
+        plots = []
         variables = ['G', 'I', 'HOMA_IR']
         labels = ['Glucose (mM)', 'Insulin (a.u.)', 'HOMA-IR']
         colors = ['steelblue'] * len(treatment_results)
         colors[0] = 'red'  # Diseased state in red
         
-        for i, (var, label) in enumerate(zip(variables, labels)):
-            axes[i].bar(range(len(df_treatment)), df_treatment[var], color=colors)
-            axes[i].axhline(y=treatment_results[0][var], color='red', 
-                          linestyle='--', alpha=0.5, label='Diseased')
-            axes[i].set_xticks(range(len(df_treatment)))
-            axes[i].set_xticklabels(df_treatment['treatment'], rotation=45, ha='right')
-            axes[i].set_ylabel(label)
-            axes[i].set_title(f'{label} - Treatment Effects')
-            sns.despine(ax=axes[i])
+        def plot_treatment_bar(ax, var, label):
+            ax.bar(range(len(df_treatment)), df_treatment[var], color=colors)
+            ax.axhline(y=treatment_results[0][var], color='red', 
+                         linestyle='--', alpha=0.5, label='Diseased')
+            ax.set_xticks(range(len(df_treatment)))
+            ax.set_xticklabels(df_treatment['treatment'], rotation=45, ha='right')
+            ax.set_ylabel(label)
+            ax.set_title(f'{label} - Treatment Effects')
+            sns.despine(ax=ax)
         
-        plt.tight_layout()
-        
-        # Convert plot to base64
-        img_str = plot_to_base64(fig)
+        for var, label in zip(variables, labels):
+            plot_data = create_individual_plot(plot_treatment_bar, var=var, label=label)
+            plots.append({
+                'id': f'{var}_treatment',
+                'title': f'{label} - Treatment Effects',
+                'data': plot_data
+            })
         
         # Prepare data
         data_csv = df_treatment.to_csv(index=False)
@@ -626,7 +691,7 @@ def run_treatment():
         
         return jsonify({
             'success': True,
-            'plot': img_str,
+            'plots': plots,
             'data': data_csv,
             'top_perturbations': top_perturbations
         })

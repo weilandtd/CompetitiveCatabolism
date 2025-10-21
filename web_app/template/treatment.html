@@ -74,7 +74,7 @@
                     <p class="placeholder">Configure disease state and click "Run Simulation" to identify optimal treatments.</p>
                 </div>
                 <div id="plot-container" style="display: none;">
-                    <img id="plot-img" alt="Simulation Plot">
+                    <div id="plots-grid" class="plots-grid"></div>
                     <div id="sensitivity-table" style="margin-top: 20px;">
                         <h3>Top 10 Therapeutic Targets (by HOMA-IR sensitivity)</h3>
                         <table id="sensitivity-data">
@@ -170,7 +170,28 @@
                 if (result.success) {
                     document.getElementById('results').innerHTML = '';
                     document.getElementById('plot-container').style.display = 'block';
-                    document.getElementById('plot-img').src = 'data:image/png;base64,' + result.plot;
+                    
+                    const plotsGrid = document.getElementById('plots-grid');
+                    plotsGrid.innerHTML = '';
+                    
+                    // Determine grid layout based on number of plots
+                    const numPlots = result.plots.length;
+                    if (numPlots <= 2) {
+                        plotsGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+                    } else if (numPlots <= 4) {
+                        plotsGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+                    } else {
+                        plotsGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                    }
+                    
+                    // Add each plot to the grid
+                    result.plots.forEach(plot => {
+                        const plotDiv = document.createElement('div');
+                        plotDiv.className = 'plot-item';
+                        plotDiv.innerHTML = plot.data;
+                        plotsGrid.appendChild(plotDiv);
+                    });
+                    
                     simulationData = result.data;
                     
                     // Display sensitivity table
