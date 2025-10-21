@@ -572,10 +572,10 @@ def run_treatment():
                 'HOMA_IR': X_treated[1] * X_treated[4] * 7
             })
         
-        # Add insulin treatment (increase Imax)
+        # Add insulin treatment (increase I_max)
         p_insulin = change_parameters(p_perturbed, 
-                                     [1.5 * p_perturbed[PARAMETER_NAMES.index('Imax')]], 
-                                     ix=['Imax'])
+                                     [1.5 * p_perturbed[PARAMETER_NAMES.index('I_max')]], 
+                                     ix=['I_max'])
         X_insulin = perturbation_steady_state(A, p=p_insulin)
         treatment_results.append({
             'treatment': 'Insulin',

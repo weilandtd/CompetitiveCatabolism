@@ -28,17 +28,17 @@ TAU_G = 21.0 # 21 min
 TAU_K = 3.0 # 3 min
 
 # Insulin secretion
-k = 3.4
+h = 3.4
 C = 2.3
 #Ref. insulin
-I0 = abs(1.0)**k / (abs(1.0)**k + C**k)
+I0 = abs(1.0)**h / (abs(1.0)**h + C**h)
 
 
 ######################################
 # Sready state analysis 
 ######################################
 
-# Scale the fluxes by vE -> ATP flux 
+# Scale the fluxes by v_energy -> ATP flux 
 
 # ATP per O2 (3 per O)
 PO2 = 5.0
@@ -47,7 +47,7 @@ vO2 = 2000
 # ATP production rate
 vATP = PO2 * vO2 * 0.75
 
-def mass_and_energy_constraints(v, vE=1.0, 
+def mass_and_energy_constraints(v, v_energy=1.0, 
                                 FG = 100/vATP, 
                                 FL = 150/vATP, 
                                 FK = 30/vATP ,
@@ -63,7 +63,7 @@ def mass_and_energy_constraints(v, vE=1.0,
     # CO2 = balance 
     dCO2 = 3 * vL + 6 * vG + 16 * vF + 4 * vK - vCO2
     # Constraint energy expenditure to 
-    dE = nL * vL + nG * vG + nF * vF + nK * vK + 2 * vGL - vE
+    dE = nL * vL + nG * vG + nF * vF + nK * vK + 2 * vGL - v_energy
 
     # ADDITIONAL CONSTRAINTS
     dGLY1 = vLG - 1/2 * vA # Equal contribution of glycogen and gluconeogenesis to EGP
@@ -109,48 +109,42 @@ TAU_K_ref = 1/(4*vFK_ref)
 # Parameter names and descriptions
 ######################################
 
+PARAMETER_NAMES = ["v_energy", "h", "I_max", "C", "K_i_lipolysis", "K_a_glycolysis", "K_i_glycogenolysis", "k_glycolysis", 
+                   "k_lactate", "k_glucose", "k_fatty_acids", "k_3HB", "k_lipolysis", "k_reesterification", "k_ketogenesis", "k_gluconeogenesis", "K_i_ketogenesis", 
+                   "V_glycogenolysis", "R_insulin", "R_lactate", "R_glucose", "R_fatty_acids", "R_3HB", 
+                   "insulin_action_lipolysis", "insulin_action_glycolysis", "insulin_action_glycogenolysis", "insulin_action_ketogenesis",]
 
-PARAMETER_NAMES = ["vE", "k", "Imax", "C", "KI_lipo", "KA_glut4", "KI_GL", "omega", 
-                   "lam", "gamma", "beta", "kappa", "alpha", "VR", "VFK", "VLG", "KI_F", 
-                   "v0", "v_in_I", "v_in_L", "v_in_G", "v_in_F", "v_in_K", 
-                   "with_LI", "with_SI", "with_GI", "with_FI",]
 
-
-PARAMETER_DESCRIPTIONS = {"vE": "Energy expenditure",
-                          "k": "Insulin hill coeffcient",
-                          "f": "Fat hill coefficient",
-                          "Imax": "Insulin secretion capacity",
+PARAMETER_DESCRIPTIONS = {"v_energy": "Energy expenditure",
+                          "h": "Insulin Hill coefficient",
+                          "I_max": "Insulin secretion capacity",
                           "C": "Insulin secretion threshold (Glucose)", 
-                          "KI_lipo": "Insulin inhibition of lipolysis",
-                          "KI_F": "Insulin inhibition of ketone production",
-                          "KA_glut4": "Insulin activation of glucose uptake", 
-                          "KI_GL": "Insulin inhibition of glycogen breakdown",
-                          "KIL": "Lactate inhibition of lipolysis",
-                          "KIK": "Insulin inhibition of ketogenesis  ",
-                          "KF": "Reesterification affinity fatty acids", 
-                          "KG": "Reesterification affinity glucose",
-                          "omega": "Glycolysis activity", 
-                          "lam": "Lactate oxidation activity", 
-                          "gamma": "Glucose oxidation activity", 
-                          "beta": "Fatty-acid oxidation activity", 
-                          "kappa": "3HB oxidation activity", 
-                          "alpha": "Adipose lipolyis activity",
-                          "VR": "Reseterifcation activity",  
-                          "VFK": "Ketongenesis activity",
-                          "KFK":"Ketogenesis affinity fatty acids" ,
-                          "VLG": "Gluconeogenesis Activity ", 
-                          "KL":"Gluconeogenesis affinity lactate",
-                          "v0": "Liver glucose output",
+                          "K_i_lipolysis": "Insulin inhibition of lipolysis",
+                          "K_i_ketogenesis": "Insulin inhibition of ketone production",
+                          "K_a_glycolysis": "Insulin activation of glucose uptake", 
+                          "K_i_glycogenolysis": "Insulin inhibition of glycogen breakdown",
+                          "k_glycolysis": "Glycolysis activity", 
+                          "k_lactate": "Lactate oxidation activity", 
+                          "k_glucose": "Glucose oxidation activity", 
+                          "k_fatty_acids": "Fatty-acid oxidation activity", 
+                          "k_3HB": "3HB oxidation activity", 
+                          "k_lipolysis": "Adipose lipolysis activity",
+                          "k_reesterification": "Reesterification activity",  
+                          "k_ketogenesis": "Ketogenesis activity",
+                          "KFK": "Ketogenesis affinity fatty acids",
+                          "k_gluconeogenesis": "Gluconeogenesis activity", 
+                          "KL": "Gluconeogenesis affinity lactate",
+                          "V_glycogenolysis": "Liver glucose output",
                           "rho": "Fraction of regulated lipolysis",
-                          "v_in_I": "Insulin infusion flux",
-                          "v_in_L": "Lacate infsuion flux", 
-                          "v_in_G": "Glucose infsuion flux", 
-                          "v_in_F": "NEFA infsuion flux", 
-                          "v_in_K": "3HB infsuion flux", 
-                          "with_LI": "K/O of insulin inhibition lipolysis",
-                          "with_SI": "K/O of insulin activation glucose uptake",
-                          "with_GI": "K/O of insulin inhibition glycogen breakdown",
-                          "with_FI": "K/O of insulin inhibition ketogenesis",
+                          "R_insulin": "Insulin infusion rate",
+                          "R_lactate": "Lactate infusion rate", 
+                          "R_glucose": "Glucose infusion rate", 
+                          "R_fatty_acids": "NEFA infusion rate", 
+                          "R_3HB": "3HB infusion rate", 
+                          "insulin_action_lipolysis": "K/O of insulin inhibition of lipolysis",
+                          "insulin_action_glycolysis": "K/O of insulin activation of glucose uptake",
+                          "insulin_action_glycogenolysis": "K/O of insulin inhibition of glycogen breakdown",
+                          "insulin_action_ketogenesis": "K/O of insulin inhibition of ketogenesis",
 
 }
 
@@ -166,74 +160,73 @@ def fluxes(x,A,p):
     L,G,F,K,I,IA = x
 
     
-    
-    vE, k, Imax, C, KI_lipo, KA_glut4, KI_GL, omega, \
-    lam, gamma, beta, kappa, alpha, VR, VFK, VLG, KI_F,  \
-    v0, v_in_I, v_in_L, v_in_G, v_in_F, v_in_K, \
-    with_LI, with_SI, with_GI, with_FI,  hyperplasia,= p
+    v_energy, h, I_max, C, K_i_lipolysis, K_a_glycolysis, K_i_glycogenolysis, k_glycolysis, \
+    k_lactate, k_glucose, k_fatty_acids, k_3HB, k_lipolysis, k_reesterification, k_ketogenesis, k_gluconeogenesis, K_i_ketogenesis,  \
+    V_glycogenolysis, R_insulin, R_lactate, R_glucose, R_fatty_acids, R_3HB, \
+    insulin_action_lipolysis, insulin_action_glycolysis, insulin_action_glycogenolysis, insulin_action_ketogenesis,  hyperplasia,= p
     
     # Insulin
-    vI = ( Imax * abs(G)**k / (abs(G)**k + C**k) - I ) / TAU_INS + v_in_I
+    vI = ( I_max * abs(G)**h / (abs(G)**h + C**h) - I ) / TAU_INS + R_insulin
     vIA = ( I - IA )/ TAU_INS_A
 
     # Isulin action on lipolysis
-    if with_LI:
-        LI = 1.0 - IA / (IA + KI_lipo) 
+    if insulin_action_lipolysis:
+        LI = 1.0 - IA / (IA + K_i_lipolysis) 
     else:
         LI = 1.0
 
     # Insulin action on glucose oxidation 
-    if with_SI:
-        SI =  1 + 2.0 * IA / (IA + KA_glut4 )
+    if insulin_action_glycolysis:
+        SI =  1 + 2.0 * IA / (IA + K_a_glycolysis )
     else:
         SI = 1.0
         
     # Insulin action on Ketone production
-    if with_FI:
-        FI = 1.0 -  IA / (IA + KI_F) 
+    if insulin_action_ketogenesis:
+        FI = 1.0 -  IA / (IA + K_i_ketogenesis) 
     else:
         FI = 1.0
 
     # Insulin action on glycogen breakdown
-    if with_GI:
-        GI = 1.0 -  IA / (IA + KI_GL) 
+    if insulin_action_glycogenolysis:
+        GI = 1.0 -  IA / (IA + K_i_glycogenolysis) 
     else:
         GI = 1.0
         
 
     # Competitive oxidation
-    M = vE/(  nL*lam*L \
-            + nG*gamma*G
-            + nF*beta*F
-            + nK*kappa*K
-            + 2*omega*G*SI
+    M = v_energy/(  nL*k_lactate*L \
+            + nG*k_glucose*G
+            + nF*k_fatty_acids*F
+            + nK*k_3HB*K
+            + 2*k_glycolysis*G*SI
             )
     
     # Glycolysis inhibition by lactate 
-    vGL = omega*M*G*SI
+    vGL = k_glycolysis*M*G*SI
 
-    vG = gamma*M*G
-    vL = lam*M*L
-    vF = beta*M*F
-    vK = kappa*M*K
+    vG = k_glucose*M*G
+    vL = k_lactate*M*L
+    vF = k_fatty_acids*M*F
+    vK = k_3HB*M*K
 
     
     # NOTE This just an idea now -> base lipid flux 
-    vA = alpha * A * LI
+    vA = k_lipolysis * A * LI
 
     if hyperplasia:
-        vR = VR * F * A
+        vR = k_reesterification * F * A
     else:
-        vR = VR * F
+        vR = k_reesterification * F
     
-    vFK = VFK * FI * F
-    vLG = VLG * L 
+    vFK = k_ketogenesis * FI * F
+    vLG = k_gluconeogenesis * L 
     
-    v0 = v0 * GI
-    vLG = vLG 
+    v0 = V_glycogenolysis * GI
+
     
     return np.array([vL, vG, vF, vK, vGL, vFK,  vLG, v0, vA, vR,
-            v_in_L, v_in_G, v_in_F, v_in_K, vI, vIA])
+            R_lactate, R_glucose, R_fatty_acids, R_3HB, vI, vIA])
     
 
 def equation(x,A,p):
@@ -241,12 +234,12 @@ def equation(x,A,p):
     # Relu the concentrations so that they are non-negative
 
     vL, vG, vF, vK, vGL, vFK, vLG, v0, vA, vR, \
-    v_in_L, v_in_G, v_in_F, v_in_K, vI, vIA = fluxes(x,A,p) 
+    R_lactate, R_glucose, R_fatty_acids, R_3HB, vI, vIA = fluxes(x,A,p) 
 
-    dLdt = 2.0*vGL - 2.0*vLG - vL + v_in_L
-    dGdt = v0 + 1/2*(vA -vR) + vLG - vGL - vG + v_in_G
-    dFdt = 3.0*(vA-vR) - vF - vFK + v_in_F
-    dKdt = 4.0*vFK - vK + v_in_K
+    dLdt = 2.0*vGL - 2.0*vLG - vL + R_lactate
+    dGdt = v0 + 1/2*(vA -vR) + vLG - vGL - vG + R_glucose
+    dFdt = 3.0*(vA-vR) - vF - vFK + R_fatty_acids
+    dKdt = 4.0*vFK - vK + R_3HB
     dIdt = vI
     dIAdt = vIA
     
@@ -276,38 +269,39 @@ def steady_state(A,p, x0=[1.0,1.0,1.0,1.0,I0,I0], **kwargs):
         return np.nan * np.ones_like(x)
 
 
-# Competitive catabolism model
-def competitive_oxidation(x,p,):
-    # Unpack concentrations
-    L,G,F,K,I = x
-    
-    vE, k, Imax, C, KI_lipo, KA_glut4, KI_GL, omega, \
-    lam, gamma, beta, kappa, alpha, VR, VFK, VLG, KI_F,  \
-    v0, v_in_I, v_in_L, v_in_G, v_in_F, v_in_K, \
-    with_LI, with_SI, with_GI, with_FI,  hyperplasia,= p
+# Competitive catabolism model (refactored to match `fluxes` conventions)
+def competitive_oxidation(x, p):
+    # Unpack concentrations (match fluxes: L,G,F,K,I,IA)
+    L, G, F, K, IA = x
 
-    # Insulin
-    I0 = abs(1.0)**k / (abs(1.0)**k + C**k)
+    # Unpack parameters in the same order as `fluxes`
+    v_energy, h, I_max, C, K_i_lipolysis, K_a_glycolysis, K_i_glycogenolysis, k_glycolysis, \
+    k_lactate, k_glucose, k_fatty_acids, k_3HB, k_lipolysis, k_reesterification, k_ketogenesis, k_gluconeogenesis, K_i_ketogenesis,  \
+    V_glycogenolysis, R_insulin, R_lactate, R_glucose, R_fatty_acids, R_3HB, \
+    insulin_action_lipolysis, insulin_action_glycolysis, insulin_action_glycogenolysis, insulin_action_ketogenesis,  hyperplasia = p
 
-    if with_SI:
-        SI =  1 + 2.0 * I / (I + KA_glut4 )
+    # Insulin action on glucose oxidation (use IA as in `fluxes`)
+    if insulin_action_glycolysis:
+        SI = 1.0 + 2.0 * IA / (IA + K_a_glycolysis)
     else:
-        SI = 1.0 
+        SI = 1.0
 
-    # Competitive oxidation
-    M = vE/(nL*lam*L \
-             + nG*gamma*G
-             + nF*beta*F
-             + nK*kappa*K
-             + 2*omega* G * SI
-             )
-    
-    vG = gamma*M*G
-    vL = lam*M*L
-    vF = beta*M*F
-    vK = kappa*M*K
-    vGL = omega*M*G*SI
+    # Competitive oxidation (same form as in `fluxes`)
+    M = v_energy / (
+        nL * k_lactate * L
+        + nG * k_glucose * G
+        + nF * k_fatty_acids * F
+        + nK * k_3HB * K
+        + 2 * k_glycolysis * G * SI
+    )
 
+    vG = k_glucose * M * G
+    vL = k_lactate * M * L
+    vF = k_fatty_acids * M * F
+    vK = k_3HB * M * K
+    vGL = k_glycolysis * M * G * SI
+
+    # Return the subset of fluxes produced by the competitive oxidation calculation
     return np.array([vL, vG, vF, vK, vGL])
     
 
@@ -318,102 +312,96 @@ def competitive_oxidation(x,p,):
 
 def ref_parameters( 
         C = 2.3,
-        k = 3.4,
-        KI_lipo=1.0,
-        KA_glut4=10.0,
-        KI_GL=10.0,
-        KIL=1.0,
-        KIK=1.0,
-        KI_F=1.0,
-        with_LI = True,
-        with_SI = True,
-        with_GL = True,
-        with_FI = True,
+        h = 3.4,
+        K_i_lipolysis=1.0,
+        K_a_glycolysis=10.0,
+        K_i_glycogenolysis=10.0,
+        K_i_ketogenesis=1.0,
+        insulin_action_lipolysis = True,
+        insulin_action_glycolysis = True,
+        insulin_action_glycogenolysis = True,
+        insulin_action_ketogenesis = True,
         steady_state=REF_STEADY_STATE_VALUES):
 
     # Unpack steady state values
-    vL, vG, vF, vK, vGL, vFK,  vLG, v0, vA, vR, vCO2 = steady_state
+    vL, vG, vF, vK, vGL, vFK,  vLG, V_glycogenolysis_ref, vA, vR, vCO2 = steady_state
 
     # Parameters 
-    vE = 1.0
+    v_energy = 1.0
     
     #Ref. insulin
-    Imax = 1.0
-    I0 = abs(1.0)**k / (abs(1.0)**k + C**k) * Imax
+    I_max = 1.0
+    I0 = abs(1.0)**h / (abs(1.0)**h + C**h) * I_max
 
     # Insulin action on lipolysis
     # From lactate paper
-    KI_lipo = I0 * KI_lipo
-    if with_LI:
-        LI = 1.0 - I0 / (I0 + KI_lipo)
+    K_i_lipolysis_scaled = I0 * K_i_lipolysis
+    if insulin_action_lipolysis:
+        LI = 1.0 - I0 / (I0 + K_i_lipolysis_scaled)
     else:
         LI = 1.0
 
     # Insulin action on glucose uptake
     # From lacate paper
-    KA_glut4 = I0 * KA_glut4 
+    K_a_glycolysis_scaled = I0 * K_a_glycolysis 
     A = 2.0
-    if with_SI:
-        SI =  1 + A * I0 / (I0 + KA_glut4 ) 
+    if insulin_action_glycolysis:
+        SI =  1 + A * I0 / (I0 + K_a_glycolysis_scaled ) 
     else:
         SI = 1.0
 
     # Insulin action on glycogen breakdown
-    KI_GL = I0 * KI_GL
+    K_i_glycogenolysis_scaled = I0 * K_i_glycogenolysis
 
     # Insulin action on Ketone production
-    KI_F = I0 * KI_F
+    K_i_ketogenesis_scaled = I0 * K_i_ketogenesis
 
-    if with_FI:
-        FI = 1.0 - I0 / (I0 + KI_F) 
+    if insulin_action_ketogenesis:
+        FI = 1.0 - I0 / (I0 + K_i_ketogenesis_scaled) 
     else:
-        FI = 1.0
-    
-    # Lactate action on lipolysis
-    KIL = 1.0 * KIL
-    # KETONE action on lipolysis
-    KIK = 1.0 * KIK          
+        FI = 1.0    
+
 
     # Calculate parmeters 
-    omega = vGL/SI
-    lam = vL
-    gamma = vG
-    beta = vF
-    kappa = vK
+    k_glycolysis = vGL/SI
+    k_lactate = vL
+    k_glucose = vG
+    k_fatty_acids = vF
+    k_3HB = vK
     
     # Effects on lipolysis
-    alpha = vA/LI 
+    k_lipolysis = vA/LI 
     
     # Glycogen breakdown
-    if with_GL:
-        GI = 1.0 - I0 / (I0 + KI_GL) 
+    if insulin_action_glycogenolysis:
+        GI = 1.0 - I0 / (I0 + K_i_glycogenolysis_scaled) 
     else:
         GI = 1.0
-    v0 = v0 / GI
+    V_glycogenolysis = V_glycogenolysis_ref / GI
 
     # Resterification -> more or less constant
-    VR = vR / 1.0
+    k_reesterification = vR / 1.0
     
     # Ketogenesis -> const. in FA dep
-    VFK = vFK / FI
+    k_ketogenesis = vFK / FI
 
     # Gluconeogenesis
-    VLG = vLG / 1.0
+    k_gluconeogenesis = vLG / 1.0
     
     # Parameters to manipulate the model
-    v_in_I = 0.0 # Insulin infusion
-    v_in_L = 0.0 # lactate infusion
-    v_in_G = 0.0 # glucose infusion
-    v_in_F = 0.0 # fatty-accid infusion
-    v_in_K = 0.0 # Ketone infusion   
+    R_insulin = 0.0 # Insulin infusion
+    R_lactate = 0.0 # lactate infusion
+    R_glucose = 0.0 # glucose infusion
+    R_fatty_acids = 0.0 # fatty-accid infusion
+    R_3HB = 0.0 # Ketone infusion   
 
     # Hyperplasia
     hyperplasia = False
 
-    return [vE, k, Imax, C, KI_lipo, KA_glut4, KI_GL, omega, \
-            lam, gamma, beta, kappa, alpha, VR, VFK, VLG, KI_F, 
-            v0, v_in_I, v_in_L, v_in_G, v_in_F, v_in_K, \
-            with_LI, with_SI, with_GL, with_FI, hyperplasia,]
+    return [v_energy, h, I_max, C, K_i_lipolysis_scaled, K_a_glycolysis_scaled, K_i_glycogenolysis_scaled, k_glycolysis, \
+    k_lactate, k_glucose, k_fatty_acids, k_3HB, k_lipolysis, k_reesterification, k_ketogenesis, k_gluconeogenesis, K_i_ketogenesis_scaled,  \
+    V_glycogenolysis, R_insulin, R_lactate, R_glucose, R_fatty_acids, R_3HB, \
+    insulin_action_lipolysis, insulin_action_glycolysis, insulin_action_glycogenolysis, insulin_action_ketogenesis,  hyperplasia]
 
 
 def change_parameters(p,e=[1.0,],ix=["vE",]):
@@ -485,8 +473,7 @@ def insulin_clamp_dynamic(insulin_level,time,A,p=None, **kwargs):
 
     euglycemic_clamp = lambda x,t,A,p,: equation(x,A,p) + np.array([0,1,0,0,0,0]) * GIR(x,A,p)
     
-
-    p_ins = change_parameters(p, [insulin_level,], ['v_in_I'])
+    p_ins = change_parameters(p, [insulin_level,], ['R_insulin',])
 
     sol_X = odeint(euglycemic_clamp, X0, time, args=(A,p_ins,), rtol=1e-9, atol=1e-9)
     
@@ -691,7 +678,7 @@ def parallel_perturb(args):
     Helper for multiprocessing: unpacks arguments and runs perturbation_steady_state.
     """
     p, X0, v = args
-    vE0 = p[PARAMETER_NAMES.index("vE")]
+    vE0 = p[PARAMETER_NAMES.index("v_energy")]
     return perturbation_steady_state(1.0, p, x0=X0, vE=vE0 * v)
 
 
