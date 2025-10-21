@@ -17,13 +17,33 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'multi_nutrient_mo
 from multi_nutrient_model import (
     ref_parameters, perturbation_dynamics, perturbation_steady_state,
     insulin_clamp_dynamic, I0, PARAMETER_NAMES, PARAMETER_DESCRIPTIONS,
-    PARAMETER_LATEX, steady_state, fluxes, sensitivity_analysis, change_parameters
+    PARAMETER_LATEX, steady_state, fluxes, sensitivity_analysis, change_parameters,
+    TAU_INS
 )
+
+# Flux scaling based on total ATP production rate
+# ATP per O2 (3 per O)
+PO2 = 5.0
+# Whole body oxygen consumption rate ~ 2000 nmol/min/gBW
+vO2 = 2000 * 0.7 
+# ATP production rate
+vATP = PO2 * vO2 
+# Scale the oxygen fluxes by vE
+vE = vATP 
+
 
 app = Flask(__name__, template_folder='template', static_folder='static')
 
-# Set matplotlib style
-plt.rcParams.update({'font.size': 12, 'font.family': 'Arial'})
+# Set matplotlib style with larger fonts
+plt.rcParams.update({
+    'font.size': 14,
+    'font.family': 'Arial',
+    'axes.labelsize': 16,
+    'axes.titlesize': 18,
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
+    'legend.fontsize': 14,
+})
 sns.set_style("whitegrid")
 
 def plot_to_base64(fig):
@@ -187,9 +207,7 @@ def run_clamp():
         data = request.json
         
         # Get parameters
-        insulin_levels_str = data.get('insulin_levels', '0, 1, 2, 5')
-        # Parse comma-separated string into list of floats
-        insulin_levels = [float(x.strip()) for x in insulin_levels_str.split(',')]
+        insulin_level = data.get('insulin_level', 'low')  # 'low' or 'high'
         time_max = float(data.get('time_max', 120))
         infusion_type = data.get('infusion_type', 'none')
         infusion_amount = float(data.get('infusion_amount', 0))
@@ -206,74 +224,114 @@ def run_clamp():
             values = [float(param_dict[k]) for k in keys]
             p = change_parameters(p, values, ix=keys)
         
-        # Add infusion if specified
-        if infusion_type != 'none':
-            infusion_param = f'v_in_{infusion_type[0].upper()}'  # v_in_L, v_in_G, v_in_F, v_in_K
-            p = change_parameters(p, [infusion_amount], ix=[infusion_param])
+        # Set insulin dose based on selection (matching hyperinsulinemic_euglycemic_clamp.ipynb)
+        # vI_low = I0/TAU_INS (double basal fasted insulin levels)
+        # vI_high = I0/TAU_INS * 3 (three times low dose)
+        vI_low = I0 / TAU_INS
+        vI_high = I0 / TAU_INS * 3
         
-        # Run simulations for each insulin level
+        insulin_dose = vI_low if insulin_level == 'low' else vI_high
+        insulin_label = 'Low Dose' if insulin_level == 'low' else 'High Dose'
+        
+        # Run simulation
         time = np.linspace(0, time_max, 200)
         
-        results = []
-        gir_results = []
+        # Saline (no insulin, always displayed)
+        X_saline, GIR_saline = insulin_clamp_dynamic(0, time, 1.0, p=p)
+        X_saline['G'] = X_saline['G'] * 7
+        X_saline['F'] = X_saline['F'] * 0.5
+        X_saline['K'] = X_saline['K'] * 0.5
+        X_saline['L'] = X_saline['L'] * 0.7
+        X_saline['condition'] = 'Saline'
+        GIR_saline['condition'] = 'Saline'
         
-        for ins_level in insulin_levels:
-            X, GIR = insulin_clamp_dynamic(ins_level, time, 1.0, p=p)
-            
-            # Scale concentrations
-            X['G'] = X['G'] * 7
-            X['F'] = X['F'] * 0.5
-            X['K'] = X['K'] * 0.5
-            X['L'] = X['L'] * 0.7
-            X['insulin_level'] = ins_level
-            
-            GIR['insulin_level'] = ins_level
-            
-            results.append(X)
-            gir_results.append(GIR)
+        # Baseline (insulin clamp, no infusion)
+        X_baseline, GIR_baseline = insulin_clamp_dynamic(insulin_dose, time, 1.0, p=p)
+        X_baseline['G'] = X_baseline['G'] * 7
+        X_baseline['F'] = X_baseline['F'] * 0.5
+        X_baseline['K'] = X_baseline['K'] * 0.5
+        X_baseline['L'] = X_baseline['L'] * 0.7
+        X_baseline['condition'] = 'Insulin'
+        GIR_baseline['condition'] = 'Insulin'
         
-        X_all = pd.concat(results)
-        GIR_all = pd.concat(gir_results)
-        
-        # Calculate steady state (last 20% of simulation)
-        cutoff = time_max * 0.8
-        X_ss = X_all[X_all['time'] > cutoff].groupby('insulin_level').mean().reset_index()
-        GIR_ss = GIR_all[GIR_all['time'] > cutoff].groupby('insulin_level').mean().reset_index()
+        # With infusion if specified
+        X_infusion = None
+        GIR_infusion = None
+        if infusion_type != 'none':
+            # Conversion: 0.01 model units = 70 nmol/min/gBW
+            # infusion_amount is already in nmol/min/gBW
+            
+            infusion_param_names = {
+                'fatty_acids': 'R_fatty_acids',
+                'lactate': 'R_lactate',
+                '3HB': 'R_3HB'
+            }
+
+            scaling = {
+                'fatty_acids': 1.0,
+                'lactate': 200/150, 
+                '3HB': 14/27
+            }
+            
+            # Convert from nmol/min/gBW to model units (70 nmol/min/gBW = 0.01)
+            # Based on total ATP production scaling
+            infusion_rate_model = infusion_amount * 0.01 / 70.0 * scaling[infusion_type]
+
+            
+            # Create kwargs for insulin_clamp_dynamic
+            param_name = infusion_param_names[infusion_type]
+            infusion_kwargs = {param_name: infusion_rate_model}
+            
+            X_infusion, GIR_infusion = insulin_clamp_dynamic(insulin_dose, time, 1.0, p=p, **infusion_kwargs)
+            X_infusion['G'] = X_infusion['G'] * 7
+            X_infusion['F'] = X_infusion['F'] * 0.5
+            X_infusion['K'] = X_infusion['K'] * 0.5
+            X_infusion['L'] = X_infusion['L'] * 0.7
+            X_infusion['condition'] = f'Insulin + {infusion_type.replace("_", " ").title()}'
+            GIR_infusion['condition'] = f'Insulin + {infusion_type.replace("_", " ").title()}'
         
         # Create individual plots
         plots = []
+        # Convert model GIR to mg/kg/min
+        # Assumptions based on model-unit conversions in this file:
+        #   0.01 model units = 70 nmol / min / gBW
+        # Conversion steps:
+        #   model_units -> nmol/min/g: model_to_nmol = 70 / 0.01
+        #   nmol -> mg: mg_per_nmol = 180 g/mol * 1e-6 mg/nmol = 180e-6 mg/nmol
+        #   per g -> per kg: multiply by 1000
+        model_to_nmol = 70.0 / 0.01
+        mg_per_nmol = 180.0e-6
+        g_to_kg = 1000.0
+        gir_scale = model_to_nmol * mg_per_nmol * g_to_kg  # final factor to get mg/kg/min
+
+        # Apply scaling to GIR time courses
+        GIR_saline['GIR'] = GIR_saline['GIR'] * gir_scale
+        GIR_baseline['GIR'] = GIR_baseline['GIR'] * gir_scale
+        if GIR_infusion is not None:
+            GIR_infusion['GIR'] = GIR_infusion['GIR'] * gir_scale
+
+        # Combine GIR data for plotting
+        gir_list = [GIR_saline, GIR_baseline]
+        if GIR_infusion is not None:
+            gir_list.append(GIR_infusion)
+        GIR_combined = pd.concat(gir_list, ignore_index=True)
         
-        # Time course plots for G, F, K
-        variables = ['G', 'F', 'K']
-        labels = ['Glucose (mM)', 'FFA (mM)', '3HB (mM)']
+        # Define color palette
+        condition_colors = {
+            'Saline': '#8E8E8E',
+            'Insulin': '#C959C5',
+        }
+        if GIR_infusion is not None:
+            condition_colors[GIR_infusion['condition'].iloc[0]] = '#4FC452'
         
-        def plot_timecourse(ax, var, label):
-            for ins_level in insulin_levels:
-                subset = X_all[X_all['insulin_level'] == ins_level]
-                ax.plot(subset['time'], subset[var], label=f'Insulin: {ins_level}')
-            ax.set_xlabel('Time (min)')
-            ax.set_ylabel(label)
-            ax.set_title(f'{label.split(" ")[0]} Time Course')
-            ax.legend()
-            sns.despine(ax=ax)
-        
-        for var, label in zip(variables, labels):
-            plot_data = create_individual_plot(plot_timecourse, var=var, label=label)
-            plots.append({
-                'id': f'{var}_timecourse',
-                'title': f'{label.split(" ")[0]} Time Course',
-                'data': plot_data
-            })
-        
-        # GIR time course
+        # GIR time course using seaborn
         def plot_gir_timecourse(ax):
-            for ins_level in insulin_levels:
-                subset = GIR_all[GIR_all['insulin_level'] == ins_level]
-                ax.plot(subset['time'], subset['GIR'], label=f'Insulin: {ins_level}')
+            sns.lineplot(data=GIR_combined, x='time', y='GIR', hue='condition',
+                        palette=condition_colors, linewidth=2, ax=ax)
             ax.set_xlabel('Time (min)')
-            ax.set_ylabel('GIR (a.u.)')
-            ax.set_title('Glucose Infusion Rate')
-            ax.legend()
+            ax.set_ylabel('GIR (mg/kg/min)')
+            ax.set_title(f'Glucose Infusion Rate - {insulin_label}')
+            ax.legend(title='')
             sns.despine(ax=ax)
         
         plot_data = create_individual_plot(plot_gir_timecourse)
@@ -283,41 +341,62 @@ def run_clamp():
             'data': plot_data
         })
         
-        # Bar plot for steady state glucose
-        def plot_glucose_bar(ax):
-            ax.bar(range(len(insulin_levels)), X_ss['G'], color='steelblue')
-            ax.set_xticks(range(len(insulin_levels)))
-            ax.set_xticklabels([f'{x}' for x in insulin_levels])
-            ax.set_xlabel('Insulin Level')
-            ax.set_ylabel('Glucose (mM)')
-            ax.set_title('Steady State Glucose')
-            sns.despine(ax=ax)
+        # Calculate steady state values (last 20% of simulation)
+        cutoff = time_max * 0.8
         
-        plot_data = create_individual_plot(plot_glucose_bar)
-        plots.append({
-            'id': 'G_steady_state',
-            'title': 'Steady State Glucose',
-            'data': plot_data
-        })
+        # Build steady state dataframe
+        metabolite_map = {'G': 'Glucose', 'F': 'FFA', 'K': '3HB', 'L': 'Lactate'}
+        ss_data = []
         
-        # Bar plot for steady state GIR
-        def plot_gir_bar(ax):
-            ax.bar(range(len(insulin_levels)), GIR_ss['GIR'], color='coral')
-            ax.set_xticks(range(len(insulin_levels)))
-            ax.set_xticklabels([f'{x}' for x in insulin_levels])
-            ax.set_xlabel('Insulin Level')
-            ax.set_ylabel('GIR (a.u.)')
-            ax.set_title('Steady State GIR')
-            sns.despine(ax=ax)
+        for metabolite_code, metabolite_name in metabolite_map.items():
+            ss_data.append({
+                'Metabolite': metabolite_name,
+                'Condition': 'Saline',
+                'Concentration': X_saline[X_saline['time'] > cutoff][metabolite_code].mean()
+            })
+            ss_data.append({
+                'Metabolite': metabolite_name,
+                'Condition': 'Insulin',
+                'Concentration': X_baseline[X_baseline['time'] > cutoff][metabolite_code].mean()
+            })
+            if X_infusion is not None:
+                ss_data.append({
+                    'Metabolite': metabolite_name,
+                    'Condition': X_infusion['condition'].iloc[0],
+                    'Concentration': X_infusion[X_infusion['time'] > cutoff][metabolite_code].mean()
+                })
         
-        plot_data = create_individual_plot(plot_gir_bar)
-        plots.append({
-            'id': 'GIR_steady_state',
-            'title': 'Steady State GIR',
-            'data': plot_data
-        })
+        ss_df = pd.DataFrame(ss_data)
         
-        # Prepare data
+        # Update color palette for infusion condition if present
+        if X_infusion is not None:
+            condition_colors[X_infusion['condition'].iloc[0]] = '#4FC452'
+        
+        # Create individual bar plot for each metabolite
+        for metabolite_name in metabolite_map.values():
+            metabolite_df = ss_df[ss_df['Metabolite'] == metabolite_name]
+            
+            def plot_metabolite(ax, met_df=metabolite_df, met_name=metabolite_name):
+                sns.barplot(data=met_df, x='Condition', y='Concentration',
+                           palette=condition_colors, alpha=0.7, ax=ax)
+                ax.set_ylabel('Concentration (mM)')
+                ax.set_xlabel('')
+                ax.set_title(f'{met_name} - {insulin_label}')
+                plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+                sns.despine(ax=ax)
+            
+            plot_data = create_individual_plot(plot_metabolite)
+            plots.append({
+                'id': f'steady_state_{metabolite_name.lower().replace(" ", "_")}',
+                'title': f'{metabolite_name} Steady State',
+                'data': plot_data
+            })
+        
+        # Prepare data for download
+        if X_infusion is not None:
+            X_all = pd.concat([X_saline, X_baseline, X_infusion])
+        else:
+            X_all = pd.concat([X_saline, X_baseline])
         data_csv = X_all.to_csv(index=False)
         
         return jsonify({

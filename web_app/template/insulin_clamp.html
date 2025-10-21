@@ -24,24 +24,28 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="insulin_levels">Insulin Levels (comma-separated)</label>
-                    <input type="text" id="insulin_levels" value="0, 1, 2, 5">
-                    <small>Relative to basal insulin secretion</small>
+                    <label for="insulin_level">Insulin Dose</label>
+                    <select id="insulin_level">
+                        <option value="low"> 1.25 mU/min/kg (2× basal)</option>
+                        <option value="high">2.5 mU/min/kg (4× basal)</option>
+                    </select>
+                    <small>Based on hyperinsulinemic-euglycemic clamp protocol</small>
                 </div>
                 
                 <div class="form-group">
                     <label for="infusion_type">Metabolite Co-Infusion</label>
                     <select id="infusion_type">
-                        <option value="none">None</option>
-                        <option value="L">Lactate</option>
-                        <option value="F">Fatty Acids (Intralipid)</option>
-                        <option value="K">Ketones (3-Hydroxybutyrate)</option>
+                        <option value="none">None (Baseline)</option>
+                        <option value="lactate">Lactate</option>
+                        <option value="fatty_acids">Fatty Acids (Intralipid)</option>
+                        <option value="3HB">3-Hydroxybutyrate</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="infusion_amount">Infusion Amount (a.u.)</label>
-                    <input type="number" id="infusion_amount" value="0" min="0" max="10" step="0.1">
+                    <label for="infusion_amount">Infusion Rate (nmol/min/gBW)</label>
+                    <input type="number" id="infusion_amount" value="56" min="0" max="500" step="1">
+                    <small>Defaults: Intralipid=56, Lactate=130, 3HB=120 nmol/min/gBW</small>
                 </div>
                 
                 <h3>Additional Parameter Modifications (Optional)</h3>
@@ -89,7 +93,7 @@
         
         async function runSimulation() {
             const timeMax = document.getElementById('time_max').value;
-            const insulinLevels = document.getElementById('insulin_levels').value;
+            const insulinLevel = document.getElementById('insulin_level').value;
             const infusionType = document.getElementById('infusion_type').value;
             const infusionAmount = document.getElementById('infusion_amount').value;
             
@@ -102,7 +106,7 @@
             
             const data = {
                 time_max: parseFloat(timeMax),
-                insulin_levels: insulinLevels,
+                insulin_level: insulinLevel,
                 infusion_type: infusionType,
                 infusion_amount: parseFloat(infusionAmount),
                 parameters: additionalParams
