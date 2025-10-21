@@ -1,39 +1,33 @@
 # Competitive Catabolism Web Application
 
-An interactive web application for simulating multi-nutrient metabolic dynamics based on competitive catabolism principles.
+An interactive web application for simulating the multi nutrient model. 
 
 ## Features
 
 The web app provides five types of simulations:
 
 ### 1. Dynamic Response Simulation
-- Simulate Type 1 Diabetes-like metabolic dynamics
 - Perturb parameters at specified time points
 - View time courses of glucose, fatty acids, ketones, and insulin
 - Customizable parameter modifications
 
 ### 2. Insulin Clamp Studies
-- Model hyperinsulinemic-euglycemic clamp experiments
-- Test multiple insulin dose levels
+- Simulate hyperinsulinemic-euglycemic clamp experiments
 - Optional metabolite co-infusions (lactate, fatty acids, ketones)
 - Visualize glucose infusion rate (GIR) and metabolite concentrations
 
 ### 3. Tolerance Tests (GTT/ITT)
 - Simulate Glucose Tolerance Tests and Insulin Tolerance Tests
-- Model insulin receptor knockouts (AIRKO, MIRKO, LIRKO)
 - Compare control vs knockout responses
-- Adjustable bolus timing
 
 ### 4. Obesity Simulations
-- Explore metabolic effects across adiposity spectrum
-- Compare model predictions with NHANES human data
+- Explore parmer chanegs in the context of obeseity
+- Compare the model predictions with NHANES human data
 - Calculate HOMA-IR for insulin resistance assessment
-- Test effects of parameter perturbations
 
 ### 5. Treatment Strategies
 - Identify optimal therapeutic targets via sensitivity analysis
-- Automatically rank treatments by HOMA-IR impact
-- Compare top 3 perturbation-based treatments with insulin therapy
+- Compare top 3 treatments to insulin therapy
 - Visualize treatment efficacy
 
 ## Installation
@@ -105,19 +99,6 @@ All simulation pages allow you to:
 - Modify primary parameters via dedicated controls
 - Add additional parameter modifications using the "+ Add Parameter" button
 - Download simulation results as CSV files
-
-### Understanding Parameters
-
-- **vE**: Energy expenditure (ATP production rate)
-- **alpha**: Lipolysis activity (fat breakdown)
-- **beta**: Fatty acid oxidation rate
-- **gamma**: Glucose oxidation rate
-- **Imax**: Maximum insulin secretion capacity
-- **KI_lipo**: Insulin inhibition constant for lipolysis
-- **KA_glut4**: Insulin activation constant for glucose uptake
-- **VFK**: Ketogenesis activity
-- **VLG**: Gluconeogenesis activity
-- **VR**: Fatty acid reesterification activity
 
 ### Interpreting Results
 
