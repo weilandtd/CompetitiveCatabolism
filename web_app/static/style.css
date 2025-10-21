@@ -122,6 +122,7 @@ header p {
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
     border: 1px solid #e2e8f0;
+    overflow: visible;
 }
 
 .controls-panel {
@@ -173,6 +174,8 @@ header p {
     font-size: 1em;
     transition: all 0.2s ease;
     background: #f8fafc;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .form-group input[type="number"]:focus,
@@ -214,6 +217,14 @@ header p {
     font-size: 0.9em;
     background: #f8fafc;
     transition: all 0.2s ease;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.param-row select {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .param-row select:focus,
@@ -226,6 +237,7 @@ header p {
 
 #additional-params {
     margin-bottom: 15px;
+    overflow: visible;
 }
 
 /* Loading Indicator */

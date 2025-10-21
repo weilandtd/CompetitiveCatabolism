@@ -80,11 +80,9 @@
             paramDiv.className = 'param-row';
             paramDiv.innerHTML = `
                 <select class="param-name">
-                    <option value="vE">Energy Expenditure (vE)</option>
-                    <option value="alpha">Lipolysis Activity (alpha)</option>
-                    <option value="beta">Fatty Acid Oxidation (beta)</option>
-                    <option value="gamma">Glucose Oxidation (gamma)</option>
-                    <option value="Imax">Insulin Secretion (Imax)</option>
+                    {% for param in parameter_names %}
+                    <option value="{{ param }}">{{ parameter_descriptions.get(param, param) }} ({{ parameter_latex.get(param, param) }})</option>
+                    {% endfor %}
                 </select>
                 <input type="number" class="param-value" step="0.1" value="1.0">
                 <button class="btn-remove" onclick="this.parentElement.remove()">×</button>

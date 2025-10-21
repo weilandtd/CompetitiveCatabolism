@@ -17,7 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'multi_nutrient_mo
 from multi_nutrient_model import (
     ref_parameters, perturbation_dynamics, perturbation_steady_state,
     insulin_clamp_dynamic, I0, PARAMETER_NAMES, PARAMETER_DESCRIPTIONS,
-    steady_state, fluxes, sensitivity_analysis, change_parameters
+    PARAMETER_LATEX, steady_state, fluxes, sensitivity_analysis, change_parameters
 )
 
 app = Flask(__name__, template_folder='template', static_folder='static')
@@ -44,35 +44,40 @@ def dynamic_response():
     """Page for Type 1 Diabetes-like dynamic response simulation"""
     return render_template('dynamic_response.html', 
                          parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS)
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
+                         parameter_latex=PARAMETER_LATEX)
 
 @app.route('/insulin_clamp')
 def insulin_clamp():
     """Page for hyperinsulinemic-euglycemic clamp simulation"""
     return render_template('insulin_clamp.html',
                          parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS)
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
+                         parameter_latex=PARAMETER_LATEX)
 
 @app.route('/tolerance_tests')
 def tolerance_tests():
     """Page for GTT/ITT simulation with receptor knockouts"""
     return render_template('tolerance_tests.html',
                          parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS)
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
+                         parameter_latex=PARAMETER_LATEX)
 
 @app.route('/obesity')
 def obesity():
     """Page for obesity simulation"""
     return render_template('obesity.html',
                          parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS)
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
+                         parameter_latex=PARAMETER_LATEX)
 
 @app.route('/treatment')
 def treatment():
     """Page for treatment simulation"""
     return render_template('treatment.html',
                          parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS)
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
+                         parameter_latex=PARAMETER_LATEX)
 
 @app.route('/api/run_dynamic', methods=['POST'])
 def run_dynamic():
@@ -111,10 +116,13 @@ def run_dynamic():
         X = pd.concat([X1, X2], axis=0)
         
         # Scale concentrations (typical physiological values)
-        X['G'] = X['G'] * 7  # 7 mM glucose
+        X['G'] = X['G'] * 6  # 7 mM glucose
         X['F'] = X['F'] * 0.5  # 0.5 mM FFA
         X['K'] = X['K'] * 0.5  # 0.5 mM 3HB
         X['L'] = X['L'] * 0.7  # 0.7 mM lactate
+
+        # Scale insulin concentration
+        X['I'] = X['I'] / I0  * 5 # Scale to typical insulin levels Insulin in humnas
         
         # Create plot
         fig, axes = plt.subplots(2, 2, figsize=(12, 8))

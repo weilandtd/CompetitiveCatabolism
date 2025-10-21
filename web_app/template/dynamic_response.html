@@ -31,14 +31,9 @@
                 <div class="form-group">
                     <label for="parameter">Parameter to Perturb</label>
                     <select id="parameter">
-                        <option value="Imax">Insulin Secretion Capacity (Imax)</option>
-                        <option value="alpha">Lipolysis Activity (alpha)</option>
-                        <option value="vE">Energy Expenditure (vE)</option>
-                        <option value="KI_lipo">Insulin Inhibition of Lipolysis (KI_lipo)</option>
-                        <option value="KA_glut4">Insulin Activation of Glucose Uptake (KA_glut4)</option>
-                        <option value="VFK">Ketogenesis Activity (VFK)</option>
-                        <option value="beta">Fatty Acid Oxidation (beta)</option>
-                        <option value="gamma">Glucose Oxidation (gamma)</option>
+                        {% for param in parameter_names %}
+                        <option value="{{ param }}" {% if param == 'I_max' %}selected{% endif %}>{{ parameter_descriptions.get(param, param) }} ({{ parameter_latex.get(param, param) }})</option>
+                        {% endfor %}
                     </select>
                 </div>
                 
@@ -87,13 +82,9 @@
             paramDiv.className = 'param-row';
             paramDiv.innerHTML = `
                 <select class="param-name">
-                    <option value="vE">Energy Expenditure (vE)</option>
-                    <option value="alpha">Lipolysis Activity (alpha)</option>
-                    <option value="beta">Fatty Acid Oxidation (beta)</option>
-                    <option value="gamma">Glucose Oxidation (gamma)</option>
-                    <option value="VFK">Ketogenesis (VFK)</option>
-                    <option value="VLG">Gluconeogenesis (VLG)</option>
-                    <option value="VR">Reesterification (VR)</option>
+                    {% for param in parameter_names %}
+                    <option value="{{ param }}">{{ parameter_descriptions.get(param, param) }} ({{ parameter_latex.get(param, param) }})</option>
+                    {% endfor %}
                 </select>
                 <input type="number" class="param-value" step="0.1" value="1.0">
                 <button class="btn-remove" onclick="this.parentElement.remove()">×</button>

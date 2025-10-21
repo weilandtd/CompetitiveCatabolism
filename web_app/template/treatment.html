@@ -23,12 +23,9 @@
                 <div class="form-group">
                     <label for="perturbation_param">Disease Parameter</label>
                     <select id="perturbation_param">
-                        <option value="alpha">Increased Lipolysis (alpha)</option>
-                        <option value="Imax">Reduced Insulin Secretion (Imax)</option>
-                        <option value="KI_lipo">Insulin Resistance - Lipolysis</option>
-                        <option value="KA_glut4">Insulin Resistance - Glucose Uptake</option>
-                        <option value="beta">Reduced Fatty Acid Oxidation</option>
-                        <option value="gamma">Reduced Glucose Oxidation</option>
+                        {% for param in parameter_names %}
+                        <option value="{{ param }}">{{ parameter_descriptions.get(param, param) }} ({{ parameter_latex.get(param, param) }})</option>
+                        {% endfor %}
                     </select>
                 </div>
                 
@@ -112,10 +109,9 @@
             paramDiv.className = 'param-row';
             paramDiv.innerHTML = `
                 <select class="param-name">
-                    <option value="vE">Energy Expenditure (vE)</option>
-                    <option value="alpha">Lipolysis Activity (alpha)</option>
-                    <option value="beta">Fatty Acid Oxidation (beta)</option>
-                    <option value="gamma">Glucose Oxidation (gamma)</option>
+                    {% for param in parameter_names %}
+                    <option value="{{ param }}">{{ parameter_descriptions.get(param, param) }} ({{ parameter_latex.get(param, param) }})</option>
+                    {% endfor %}
                 </select>
                 <input type="number" class="param-value" step="0.1" value="1.0">
                 <button class="btn-remove" onclick="this.parentElement.remove()">×</button>
