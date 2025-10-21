@@ -172,8 +172,8 @@ def run_dynamic():
         labels = ['Glucose (mM)', 'Fatty acids (mM)', '3-Hydroxybutyrate (mM)', 'Insulin (a.u.)']
         
         def plot_timeseries(ax, var, label):
-            ax.plot(X['time'], X[var], linewidth=2, color='black')
-            ax.axvline(time_perturbation, color='red', linestyle='--', alpha=0.5)
+            ax.plot(X['time'], X[var], linewidth=2, color='#0891b2')  # cyan-600 primary color
+            ax.axvline(time_perturbation, color='#f97316', linestyle='--', alpha=0.5)  # orange-500 accent
             ax.set_xlabel('Time (min)')
             ax.set_ylabel(label)
             ax.set_title(f'{label.split(" ")[0]} Response')
@@ -316,13 +316,13 @@ def run_clamp():
             gir_list.append(GIR_infusion)
         GIR_combined = pd.concat(gir_list, ignore_index=True)
         
-        # Define color palette
+        # Define color palette matching website theme
         condition_colors = {
-            'Saline': '#8E8E8E',
-            'Insulin': '#C959C5',
+            'Saline': '#64748b',      # slate-500 (neutral baseline)
+            'Insulin': '#0891b2',     # cyan-600 (primary brand color)
         }
         if GIR_infusion is not None:
-            condition_colors[GIR_infusion['condition'].iloc[0]] = '#4FC452'
+            condition_colors[GIR_infusion['condition'].iloc[0]] = '#f97316'  # orange-500 (high contrast accent)
         
         # GIR time course using seaborn
         def plot_gir_timecourse(ax):
@@ -367,10 +367,6 @@ def run_clamp():
                 })
         
         ss_df = pd.DataFrame(ss_data)
-        
-        # Update color palette for infusion condition if present
-        if X_infusion is not None:
-            condition_colors[X_infusion['condition'].iloc[0]] = '#4FC452'
         
         # Create individual bar plot for each metabolite
         for metabolite_name in metabolite_map.values():
@@ -459,9 +455,9 @@ def run_tolerance_tests():
         # Plot glucose response
         def plot_glucose_response(ax):
             ax.plot(X_control['time'], X_control['G'], linewidth=2, 
-                       color='grey', label='Control')
+                       color='#64748b', label='Control')  # slate-500
             ax.plot(X_ko['time'], X_ko['G'], linewidth=2, 
-                       color='steelblue', label='K/O', linestyle='--')
+                       color='#0891b2', label='K/O', linestyle='--')  # cyan-600
             ax.set_xlabel('Time (min)')
             ax.set_ylabel('Glucose (mM)')
             ax.set_title(f'{test_type} - Glucose Response')
@@ -478,9 +474,9 @@ def run_tolerance_tests():
         # Plot insulin response
         def plot_insulin_response(ax):
             ax.plot(X_control['time'], X_control['I'], linewidth=2, 
-                       color='grey', label='Control')
+                       color='#64748b', label='Control')  # slate-500
             ax.plot(X_ko['time'], X_ko['I'], linewidth=2, 
-                       color='steelblue', label='K/O', linestyle='--')
+                       color='#0891b2', label='K/O', linestyle='--')  # cyan-600
             ax.set_xlabel('Time (min)')
             ax.set_ylabel('Insulin (a.u.)')
             ax.set_title(f'{test_type} - Insulin Response')
@@ -592,11 +588,11 @@ def run_obesity():
         def plot_adiposity(ax, var, label):
             # Plot model results
             ax.plot(df_control['fat_fraction'], df_control[var], 
-                       linewidth=2, color='black', label='Model')
+                       linewidth=2, color='#0891b2', label='Model')  # cyan-600
             
             if df_perturbed is not None:
                 ax.plot(df_perturbed['fat_fraction'], df_perturbed[var], 
-                          linewidth=2, color='red', linestyle='--', label='Perturbed')
+                          linewidth=2, color='#f97316', linestyle='--', label='Perturbed')  # orange-500
             
             # Plot NHANES data if available
             if df_nhanes is not None and var in df_nhanes.columns:
@@ -604,7 +600,7 @@ def run_obesity():
                 if 'fat_fraction' in df_nhanes.columns:
                     # Split by sex if available
                     if 'Sex' in df_nhanes.columns:
-                        for sex, marker, color in [('Male', 'o', 'blue'), ('Female', 's', 'pink')]:
+                        for sex, marker, color in [('Male', 'o', '#0e7490'), ('Female', 's', '#f59e0b')]:  # cyan-700, amber-500
                             subset = df_nhanes[df_nhanes['Sex'] == sex]
                             ax.scatter(subset['fat_fraction'], subset[var], 
                                          alpha=0.3, s=10, marker=marker, 
@@ -740,13 +736,13 @@ def run_treatment():
         plots = []
         variables = ['G', 'I', 'HOMA_IR']
         labels = ['Glucose (mM)', 'Insulin (a.u.)', 'HOMA-IR']
-        colors = ['steelblue'] * len(treatment_results)
-        colors[0] = 'red'  # Diseased state in red
+        colors = ['#0891b2'] * len(treatment_results)  # cyan-600 for treatments
+        colors[0] = '#f97316'  # orange-500 for diseased state
         
         def plot_treatment_bar(ax, var, label):
             ax.bar(range(len(df_treatment)), df_treatment[var], color=colors)
-            ax.axhline(y=treatment_results[0][var], color='red', 
-                         linestyle='--', alpha=0.5, label='Diseased')
+            ax.axhline(y=treatment_results[0][var], color='#f97316', 
+                         linestyle='--', alpha=0.5, label='Diseased')  # orange-500
             ax.set_xticks(range(len(df_treatment)))
             ax.set_xticklabels(df_treatment['treatment'], rotation=45, ha='right')
             ax.set_ylabel(label)
