@@ -235,13 +235,16 @@ def run_dynamic():
         X = pd.concat([X1, X2], axis=0)
         
         # Scale concentrations (typical physiological values)
-        X['G'] = X['G'] * 6  # 7 mM glucose
+        X['G'] = X['G'] * 6  # 6 mM glucose (mouse fasted level)
         X['F'] = X['F'] * 0.5  # 0.5 mM FFA
         X['K'] = X['K'] * 0.5  # 0.5 mM 3HB
         X['L'] = X['L'] * 0.7  # 0.7 mM lactate
 
-        # Scale insulin concentration
-        X['I'] = X['I'] / I0  * 0.4 # Scale to typical insulin levels Insulin in mice
+        # Scale insulin concentration to ng/mL (mouse scale)
+        X['I'] = X['I'] / I0  * 0.4 # Scale to typical insulin levels in mice
+        
+        # Scale insulin action relative to I0
+        X['IA'] = X['IA'] / I0
         
         # Create individual plots
         variables = ['G','L' ,'F', 'K', 'I']
@@ -267,8 +270,33 @@ def run_dynamic():
         # Check for warnings
         warnings = check_simulation_warnings(X[['time', 'G', 'F', 'K', 'L', 'I', 'IA']])
         
-        # Prepare data for download
-        data_csv = X[['time', 'G', 'F', 'K', 'L', 'I', 'IA']].to_csv(index=False)
+        # Prepare data for download with better column labels and perturbation info
+        X_download = X[['time', 'G', 'F', 'K', 'L', 'I', 'IA']].copy()
+        
+        # Rename columns with full names and units
+        X_download = X_download.rename(columns={
+            'time': 'Time (min)',
+            'G': 'Glucose (mM)',
+            'F': 'Fatty_acids (mM)',
+            'K': '3-Hydroxybutyrate (mM)',
+            'L': 'Lactate (mM)',
+            'I': 'Insulin (ng/mL)',
+            'IA': 'Insulin_action (relative to I0)'
+        })
+        
+        # Add perturbation information columns
+        X_download['Primary_perturbation_parameter'] = parameter
+        X_download['Primary_perturbation_fold_change'] = fold_change
+        X_download['Perturbation_onset_time (min)'] = time_perturbation
+        
+        # Add additional perturbations if any
+        if param_dict:
+            additional_params_str = '; '.join([f"{k}={v}x" for k, v in param_dict.items()])
+            X_download['Additional_perturbations'] = additional_params_str
+        else:
+            X_download['Additional_perturbations'] = 'None'
+        
+        data_csv = X_download.to_csv(index=False)
         
         return jsonify({
             'success': True,
@@ -319,19 +347,23 @@ def run_clamp():
         
         # Saline (no insulin, always displayed)
         X_saline, GIR_saline = insulin_clamp_dynamic(0, time, 1.0, p=p)
-        X_saline['G'] = X_saline['G'] * 7
+        X_saline['G'] = X_saline['G'] * 6  # 6 mM glucose (mouse scale)
         X_saline['F'] = X_saline['F'] * 0.5
         X_saline['K'] = X_saline['K'] * 0.5
         X_saline['L'] = X_saline['L'] * 0.7
+        X_saline['I'] = X_saline['I'] / I0 * 0.4  # Scale to ng/mL (mouse scale)
+        X_saline['IA'] = X_saline['IA'] / I0  # Scale relative to I0
         X_saline['condition'] = 'Saline'
         GIR_saline['condition'] = 'Saline'
         
         # Baseline (insulin clamp, no infusion)
         X_baseline, GIR_baseline = insulin_clamp_dynamic(insulin_dose, time, 1.0, p=p)
-        X_baseline['G'] = X_baseline['G'] * 7
+        X_baseline['G'] = X_baseline['G'] * 6  # 6 mM glucose (mouse scale)
         X_baseline['F'] = X_baseline['F'] * 0.5
         X_baseline['K'] = X_baseline['K'] * 0.5
         X_baseline['L'] = X_baseline['L'] * 0.7
+        X_baseline['I'] = X_baseline['I'] / I0 * 0.4  # Scale to ng/mL (mouse scale)
+        X_baseline['IA'] = X_baseline['IA'] / I0  # Scale relative to I0
         X_baseline['condition'] = 'Insulin'
         GIR_baseline['condition'] = 'Insulin'
         
@@ -364,10 +396,12 @@ def run_clamp():
             infusion_kwargs = {param_name: infusion_rate_model}
             
             X_infusion, GIR_infusion = insulin_clamp_dynamic(insulin_dose, time, 1.0, p=p, **infusion_kwargs)
-            X_infusion['G'] = X_infusion['G'] * 7
+            X_infusion['G'] = X_infusion['G'] * 6  # 6 mM glucose (mouse scale)
             X_infusion['F'] = X_infusion['F'] * 0.5
             X_infusion['K'] = X_infusion['K'] * 0.5
             X_infusion['L'] = X_infusion['L'] * 0.7
+            X_infusion['I'] = X_infusion['I'] / I0 * 0.4  # Scale to ng/mL (mouse scale)
+            X_infusion['IA'] = X_infusion['IA'] / I0  # Scale relative to I0
             X_infusion['condition'] = f'Insulin + {infusion_type.replace("_", " ").title()}'
             GIR_infusion['condition'] = f'Insulin + {infusion_type.replace("_", " ").title()}'
         
@@ -469,19 +503,45 @@ def run_clamp():
                 'data': plot_data
             })
         
-        # Prepare data for download
+        # Prepare data for download with better column labels
         if X_infusion is not None:
             X_all = pd.concat([X_saline, X_baseline, X_infusion])
         else:
             X_all = pd.concat([X_saline, X_baseline])
-        data_csv = X_all.to_csv(index=False)
+        
+        # Rename columns with full names and units
+        X_all_download = X_all.copy()
+        X_all_download = X_all_download.rename(columns={
+            'time': 'Time (min)',
+            'G': 'Glucose (mM)',
+            'F': 'Fatty_acids (mM)',
+            'K': '3-Hydroxybutyrate (mM)',
+            'L': 'Lactate (mM)',
+            'I': 'Insulin (ng/mL)',
+            'IA': 'Insulin_action (relative to I0)',
+            'condition': 'Experimental_condition'
+        })
+        
+        # Add perturbation information
+        X_all_download['Insulin_dose'] = insulin_label
+        X_all_download['Infusion_type'] = infusion_type.replace('_', ' ').title() if infusion_type != 'none' else 'None'
+        X_all_download['Infusion_rate (nmol/min/gBW)'] = infusion_amount if infusion_type != 'none' else 0
+        
+        # Add additional parameter perturbations if any
+        if param_dict:
+            additional_params_str = '; '.join([f"{k}={v}x" for k, v in param_dict.items()])
+            X_all_download['Additional_perturbations'] = additional_params_str
+        else:
+            X_all_download['Additional_perturbations'] = 'None'
+        
+        data_csv = X_all_download.to_csv(index=False)
         
         # Check for warnings in all conditions
         warnings = []
-        warnings.extend(check_simulation_warnings(X_saline[['time', 'G', 'F', 'K', 'L']]))
-        warnings.extend(check_simulation_warnings(X_baseline[['time', 'G', 'F', 'K', 'L']]))
+        warnings.extend(check_simulation_warnings(X_saline[['time', 'G', 'F', 'K', 'L', 'I', 'IA']]))
+        warnings.extend(check_simulation_warnings(X_baseline[['time', 'G', 'F', 'K', 'L', 'I', 'IA']]))
         if X_infusion is not None:
-            warnings.extend(check_simulation_warnings(X_infusion[['time', 'G', 'F', 'K', 'L']]))
+            warnings.extend(check_simulation_warnings(X_infusion[['time', 'G', 'F', 'K', 'L', 'I', 'IA']]))
         # Remove duplicates
         warnings = list(set(warnings))
         
@@ -560,9 +620,9 @@ def run_tolerance_tests():
         X_itt_perturbed_2, _ = perturbation_dynamics(time_itt_2, 1.0, X0=x0_itt_perturbed, p=p_perturbed)
         X_itt_perturbed = pd.concat([X_itt_perturbed_1, X_itt_perturbed_2], axis=0).reset_index(drop=True)
         
-        # Scale concentrations
+        # Scale concentrations to mouse levels
         for X in [X_gtt_baseline, X_gtt_perturbed, X_itt_baseline, X_itt_perturbed]:
-            X['G'] = X['G'] * 7
+            X['G'] = X['G'] * 6  # 6 mM glucose (mouse scale)
         
         # Create plots
         plots = []
@@ -620,7 +680,28 @@ def run_tolerance_tests():
         X_itt_perturbed['condition'] = 'Perturbed'
         
         X_all = pd.concat([X_gtt_baseline, X_gtt_perturbed, X_itt_baseline, X_itt_perturbed])
-        data_csv = X_all.to_csv(index=False)
+        
+        # Rename columns with full names and units
+        X_all_download = X_all.copy()
+        X_all_download = X_all_download.rename(columns={
+            'time': 'Time (min)',
+            'G': 'Glucose (mM)',
+            'test': 'Test_type',
+            'condition': 'Condition'
+        })
+        
+        # Add perturbation information
+        X_all_download['Perturbation_parameter'] = parameter if parameter else 'None'
+        X_all_download['Perturbation_fold_change'] = fold_change if parameter else 1.0
+        
+        # Add additional parameter perturbations if any
+        if param_dict:
+            additional_params_str = '; '.join([f"{k}={v}x" for k, v in param_dict.items()])
+            X_all_download['Additional_perturbations'] = additional_params_str
+        else:
+            X_all_download['Additional_perturbations'] = 'None'
+        
+        data_csv = X_all_download.to_csv(index=False)
         
         # Check for warnings
         warnings = []
@@ -910,20 +991,34 @@ def run_obesity():
             'data': plot_data
         })
         
-        # Prepare CSV data
+        # Prepare CSV data with better column labels
+        x_label_units = 'Fat_mass (g)' if species == 'mouse' else 'Body_fat_percentage (%)'
+        
         df_results = pd.DataFrame({
-            'x_axis': x_axis,
-            'glucose': G,
-            'insulin': I,
-            'homa_ir': HOMA_IR,
-            'species': species,
-            'sex': sex if species == 'human' else 'N/A'
+            x_label_units: x_axis,
+            'Glucose_baseline (mg/dL)': G,
+            'Insulin_baseline (uU/mL)': I,
+            'HOMA_IR_baseline': HOMA_IR,
+            'Species': species,
+            'Sex': sex if species == 'human' else 'N/A'
         })
         
         if G_perturbed is not None:
-            df_results['glucose_perturbed'] = G_perturbed
-            df_results['insulin_perturbed'] = I_perturbed
-            df_results['homa_ir_perturbed'] = HOMA_IR_perturbed
+            df_results['Glucose_perturbed (mg/dL)'] = G_perturbed
+            df_results['Insulin_perturbed (uU/mL)'] = I_perturbed
+            df_results['HOMA_IR_perturbed'] = HOMA_IR_perturbed
+            df_results['Perturbation_parameter'] = perturbation_param
+            df_results['Perturbation_fold_change'] = perturbation_value
+        else:
+            df_results['Perturbation_parameter'] = 'None'
+            df_results['Perturbation_fold_change'] = 1.0
+        
+        # Add additional parameter perturbations if any
+        if param_dict:
+            additional_params_str = '; '.join([f"{k}={v}x" for k, v in param_dict.items()])
+            df_results['Additional_perturbations'] = additional_params_str
+        else:
+            df_results['Additional_perturbations'] = 'None'
         
         data_csv = df_results.to_csv(index=False)
         
@@ -1191,8 +1286,37 @@ def run_treatment():
                 'data': plot_data
             })
         
-        # Prepare data
-        data_csv = df_treatment.to_csv(index=False)
+        # Prepare data with better column labels
+        df_treatment_download = df_treatment.copy()
+        df_treatment_download = df_treatment_download.rename(columns={
+            'treatment': 'Treatment_parameter',
+            'G': 'Glucose (mg/dL)',
+            'I': 'Insulin (uU/mL)',
+            'HOMA_IR': 'HOMA_IR',
+            'F': 'Fatty_acids (mM)',
+            'K': '3-Hydroxybutyrate (mM)',
+            'L': 'Lactate (mM)',
+            'fold_change': 'Treatment_fold_change',
+            'sensitivity': 'Parameter_sensitivity',
+            'direction': 'Treatment_direction',
+            'color': 'Plot_color'
+        })
+        
+        # Add disease state information
+        df_treatment_download['Disease_adiposity_fold'] = adiposity
+        df_treatment_download['Disease_parameter'] = disease_param if disease_param else 'None'
+        df_treatment_download['Disease_parameter_fold'] = disease_fold if disease_param else 1.0
+        df_treatment_download['Insulin_dose (U/kg/day)'] = insulin_dose_u_kg_day
+        df_treatment_download['Ranking_variable'] = ranking_variable
+        
+        # Add additional parameter perturbations if any
+        if param_dict:
+            additional_params_str = '; '.join([f"{k}={v}x" for k, v in param_dict.items()])
+            df_treatment_download['Additional_perturbations'] = additional_params_str
+        else:
+            df_treatment_download['Additional_perturbations'] = 'None'
+        
+        data_csv = df_treatment_download.to_csv(index=False)
         
         # Add top perturbations info with direction and description
         top_perturbations = [
