@@ -126,6 +126,16 @@
                     const plotsGrid = document.getElementById('plots-grid');
                     plotsGrid.innerHTML = '';
                     
+                    // Display warnings if any
+                    if (result.warnings && result.warnings.length > 0) {
+                        const warningDiv = document.createElement('div');
+                        warningDiv.style.cssText = 'background-color: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 15px; margin-bottom: 20px; max-height: 400px; overflow-y: auto; word-wrap: break-word; overflow-wrap: break-word;';
+                        warningDiv.innerHTML = '<strong style="color: #92400e; font-size: 16px;">⚠️ Simulation Warnings:</strong><ul style="margin: 10px 0 0 0; padding-left: 20px; word-break: break-word;">' + 
+                            result.warnings.map(w => `<li style="color: #92400e; margin: 5px 0; word-wrap: break-word;">${w}</li>`).join('') + 
+                            '</ul>';
+                        plotsGrid.appendChild(warningDiv);
+                    }
+                    
                     // Add each plot to the grid (CSS handles layout)
                     result.plots.forEach(plot => {
                         const plotDiv = document.createElement('div');

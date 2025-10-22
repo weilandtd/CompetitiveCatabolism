@@ -87,6 +87,58 @@ def plot_to_svg(fig):
     
     return svg_str
 
+def check_simulation_warnings(data_df, scale_factors=None):
+    """Check simulation results for warnings (negative values or very large values)
+    
+    Args:
+        data_df: DataFrame with simulation results
+        scale_factors: Dict of column names to their scaling factors (optional)
+    
+    Returns:
+        List of warning messages
+    """
+    warnings = []
+    
+    # Define reasonable upper bounds for physiological variables (after scaling)
+    upper_bounds = {
+        'G': 500,    # Glucose > 50 mM is extremely high
+        'I': 100,   # Insulin > 100 ng/mL is very high
+        'F': 100,    # Fatty acids > 10 mM is very high
+        'K': 100,    # Ketones > 10 mM is very high
+        'L': 200,    # Lactate > 20 mM is very high
+        'IA': 100,   # Insulin action should be reasonable
+    }
+    
+    # Check each variable
+    for col in data_df.columns:
+        if col == 'time':
+            continue
+            
+        values = data_df[col]
+        
+        # Check for neative values (< 1e-1 = 0.1)
+        if (values < -1e-1).any():
+            min_val = values.min()
+            warnings.append(f"⚠️ Warning: {col} contains negative values (min: {min_val:.3e}). "
+                          "This indicates unrealistic parameter values.")
+        
+        # Check for very large values
+        if col in upper_bounds:
+            max_val = values.max()
+            if max_val > upper_bounds[col]:
+                warnings.append(f"⚠️ Warning: {col} reaches very high values (max: {max_val:.2f}). "
+                              "This indicates unrealistic parameter values.")
+        
+        # Check for NaN or Inf
+        if values.isna().any():
+            warnings.append(f"⚠️ Warning: {col} contains NaN (not-a-number) values. "
+                          "Simulation may have failed.")
+        if np.isinf(values).any():
+            warnings.append(f"⚠️ Warning: {col} contains infinite values. "
+                          "This indicates numerical overflow.")
+    
+    return warnings
+
 def create_individual_plot(plot_func, **kwargs):
     """Create an individual plot and return as SVG string
     
@@ -212,13 +264,17 @@ def run_dynamic():
                 'data': plot_data
             })
         
+        # Check for warnings
+        warnings = check_simulation_warnings(X[['time', 'G', 'F', 'K', 'L', 'I', 'IA']])
+        
         # Prepare data for download
         data_csv = X[['time', 'G', 'F', 'K', 'L', 'I', 'IA']].to_csv(index=False)
         
         return jsonify({
             'success': True,
             'plots': plots,
-            'data': data_csv
+            'data': data_csv,
+            'warnings': warnings
         })
         
     except Exception as e:
@@ -420,10 +476,20 @@ def run_clamp():
             X_all = pd.concat([X_saline, X_baseline])
         data_csv = X_all.to_csv(index=False)
         
+        # Check for warnings in all conditions
+        warnings = []
+        warnings.extend(check_simulation_warnings(X_saline[['time', 'G', 'F', 'K', 'L']]))
+        warnings.extend(check_simulation_warnings(X_baseline[['time', 'G', 'F', 'K', 'L']]))
+        if X_infusion is not None:
+            warnings.extend(check_simulation_warnings(X_infusion[['time', 'G', 'F', 'K', 'L']]))
+        # Remove duplicates
+        warnings = list(set(warnings))
+        
         return jsonify({
             'success': True,
             'plots': plots,
-            'data': data_csv
+            'data': data_csv,
+            'warnings': warnings
         })
         
     except Exception as e:
@@ -556,10 +622,19 @@ def run_tolerance_tests():
         X_all = pd.concat([X_gtt_baseline, X_gtt_perturbed, X_itt_baseline, X_itt_perturbed])
         data_csv = X_all.to_csv(index=False)
         
+        # Check for warnings
+        warnings = []
+        warnings.extend(check_simulation_warnings(X_gtt_baseline[['time', 'G']]))
+        warnings.extend(check_simulation_warnings(X_gtt_perturbed[['time', 'G']]))
+        warnings.extend(check_simulation_warnings(X_itt_baseline[['time', 'G']]))
+        warnings.extend(check_simulation_warnings(X_itt_perturbed[['time', 'G']]))
+        warnings = list(set(warnings))
+        
         return jsonify({
             'success': True,
             'plots': plots,
-            'data': data_csv
+            'data': data_csv,
+            'warnings': warnings
         })
         
     except Exception as e:
@@ -852,10 +927,18 @@ def run_obesity():
         
         data_csv = df_results.to_csv(index=False)
         
+        # Check for warnings
+        warnings = []
+        warnings.extend(check_simulation_warnings(df_results[['glucose', 'insulin', 'homa_ir']].rename(columns={'glucose': 'G', 'insulin': 'I'})))
+        if G_perturbed is not None:
+            warnings.extend(check_simulation_warnings(pd.DataFrame({'G': G_perturbed, 'I': I_perturbed})))
+        warnings = list(set(warnings))
+        
         return jsonify({
             'success': True,
             'plots': plots,
-            'data': data_csv
+            'data': data_csv,
+            'warnings': warnings
         })
         
     except Exception as e:
@@ -1123,6 +1206,12 @@ def run_treatment():
             for p, s in ranked_params[:10]
         ]
         
+        # Check for warnings on treatment results
+        warnings = []
+        if len(df_treatment) > 0:
+            warnings.extend(check_simulation_warnings(df_treatment[['G', 'I', 'HOMA_IR', 'F', 'K', 'L']]))
+        warnings = list(set(warnings))
+        
         return jsonify({
             'success': True,
             'plots': plots,
@@ -1130,7 +1219,8 @@ def run_treatment():
             'top_perturbations': top_perturbations,
             'ranking_variable': ranking_variable,
             'adiposity': adiposity,
-            'insulin_dose': insulin_dose_u_kg_day
+            'insulin_dose': insulin_dose_u_kg_day,
+            'warnings': warnings
         })
         
     except Exception as e:
