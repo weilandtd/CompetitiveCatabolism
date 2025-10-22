@@ -348,8 +348,8 @@ def run_clamp():
                         palette=condition_colors, linewidth=2, ax=ax)
             ax.set_xlabel('Time (min)')
             ax.set_ylabel('GIR (mg/kg/min)')
-            ax.set_title(f'Glucose Infusion Rate - {insulin_label}')
-            ax.legend(title='')
+            ax.set_title(f'Glucose Infusion Rate - {insulin_label}', pad=30)
+            ax.legend(title='', loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=3, frameon=False)
             sns.despine(ax=ax)
         
         plot_data = create_individual_plot(plot_gir_timecourse)
@@ -395,7 +395,7 @@ def run_clamp():
                            palette=condition_colors, alpha=0.7, ax=ax)
                 ax.set_ylabel('Concentration (mM)')
                 ax.set_xlabel('')
-                ax.set_title(f'{met_name} - {insulin_label}')
+                ax.set_title(f'{met_name} - {insulin_label}', pad=20)
                 plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
                 sns.despine(ax=ax)
             
@@ -503,8 +503,8 @@ def run_tolerance_tests():
                        color='#f97316', label='Perturbed', linestyle='--')  # orange-500
             ax.set_xlabel('Time (min)')
             ax.set_ylabel('Glucose (mM)')
-            ax.set_title('Glucose Tolerance Test (GTT)')
-            ax.legend()
+            ax.set_title('Glucose Tolerance Test (GTT)', pad=30)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2, frameon=False)
             ax.set_ylim(bottom=0)
             sns.despine(ax=ax)
         
@@ -524,8 +524,8 @@ def run_tolerance_tests():
                        color='#f97316', label='Perturbed', linestyle='--')  # orange-500
             ax.set_xlabel('Time (min)')
             ax.set_ylabel('Glucose (mM)')
-            ax.set_title('Insulin Tolerance Test (ITT)')
-            ax.legend()
+            ax.set_title('Insulin Tolerance Test (ITT)', pad=30)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2, frameon=False)
             ax.set_ylim(bottom=0)   
             sns.despine(ax=ax)
         
@@ -750,9 +750,9 @@ def run_obesity():
             
             ax.set_xlabel(x_label)
             ax.set_ylabel('Fasting glucose (mg/dL)')
-            ax.set_title('Glucose vs Adiposity')
+            ax.set_title('Glucose vs Adiposity', pad=30)
             if show_data or G_perturbed is not None:
-                ax.legend()
+                ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2, frameon=False)
             ax.set_ylim(bottom=0)
             sns.despine(ax=ax)
         
@@ -783,9 +783,9 @@ def run_obesity():
             ax.set_xlabel(x_label)
             ylabel = 'Fasting insulin (ng/mL)' if species == 'mouse' else 'Fasting insulin (uU/mL)'
             ax.set_ylabel(ylabel)
-            ax.set_title('Insulin vs Adiposity')
+            ax.set_title('Insulin vs Adiposity', pad=30)
             if show_data or I_perturbed is not None:
-                ax.legend()
+                ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2, frameon=False)
             ax.set_ylim(bottom=0)
             sns.despine(ax=ax)
         
@@ -815,9 +815,9 @@ def run_obesity():
             
             ax.set_xlabel(x_label)
             ax.set_ylabel('HOMA-IR')
-            ax.set_title('HOMA-IR vs Adiposity')
+            ax.set_title('HOMA-IR vs Adiposity', pad=30)
             if HOMA_IR_perturbed is not None:
-                ax.legend()
+                ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2, frameon=False)
             ax.set_ylim(bottom=0)
             sns.despine(ax=ax)
         
@@ -1065,7 +1065,7 @@ def run_treatment():
             ax.set_xticks(range(len(df_treatment)))
             ax.set_xticklabels(df_treatment['treatment'], rotation=45, ha='right')
             ax.set_ylabel(label)
-            ax.set_title(f'{label} - Treatment Effects')
+            ax.set_title(f'{label} - Treatment Effects', pad=45)
             
             # Add legend for colors
             from matplotlib.patches import Patch
@@ -1075,7 +1075,7 @@ def run_treatment():
                 Patch(facecolor=TREATMENT_COLORS['increase'], label='Increased 2×'),
                 Patch(facecolor=TREATMENT_COLORS['decrease'], label='Decreased 0.5×')
             ]
-            ax.legend(handles=legend_elements, loc='upper right')
+            ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 1.20), ncol=2, frameon=False)
             sns.despine(ax=ax)
         
         for var, label in zip(variables, labels):
