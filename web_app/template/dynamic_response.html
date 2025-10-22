@@ -139,17 +139,7 @@
                     const plotsGrid = document.getElementById('plots-grid');
                     plotsGrid.innerHTML = '';
                     
-                    // Determine grid layout based on number of plots
-                    const numPlots = result.plots.length;
-                    if (numPlots <= 2) {
-                        plotsGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-                    } else if (numPlots <= 4) {
-                        plotsGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-                    } else {
-                        plotsGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-                    }
-                    
-                    // Add each plot to the grid
+                    // Add each plot to the grid (CSS handles layout)
                     result.plots.forEach(plot => {
                         const plotDiv = document.createElement('div');
                         plotDiv.className = 'plot-item';

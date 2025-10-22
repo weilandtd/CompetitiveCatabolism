@@ -56,12 +56,28 @@ def plot_to_base64(fig):
     return img_str
 
 def plot_to_svg(fig):
-    """Convert matplotlib figure to SVG string"""
+    """Convert matplotlib figure to SVG string with responsive sizing"""
     buf = io.BytesIO()
     fig.savefig(buf, format='svg', bbox_inches='tight')
     buf.seek(0)
     svg_str = buf.read().decode('utf-8')
     plt.close(fig)
+    
+    # Remove fixed width/height attributes to make SVG responsive
+    # Replace with viewBox to maintain aspect ratio while allowing scaling
+    import re
+    # Extract width and height values
+    width_match = re.search(r'width="([^"]+)pt"', svg_str)
+    height_match = re.search(r'height="([^"]+)pt"', svg_str)
+    
+    if width_match and height_match:
+        width = width_match.group(1)
+        height = height_match.group(1)
+        # Remove width and height attributes and add viewBox
+        svg_str = re.sub(r'width="[^"]+pt"', '', svg_str)
+        svg_str = re.sub(r'height="[^"]+pt"', '', svg_str)
+        svg_str = re.sub(r'<svg', f'<svg viewBox="0 0 {width} {height}" preserveAspectRatio="xMidYMid meet"', svg_str)
+    
     return svg_str
 
 def create_individual_plot(plot_func, **kwargs):
@@ -134,16 +150,17 @@ def run_dynamic():
         parameter = data.get('parameter', 'Imax')
         fold_change = float(data.get('fold_change', 0))
         
-        # Additional parameter perturbations
+        # Additional parameter perturbations (as fold changes)
         param_dict = data.get('parameters', {})
         
         # Get base parameters
         p = ref_parameters()
         
-        # Apply parameter changes
+        # Apply parameter changes as fold changes
         if param_dict:
             keys = list(param_dict.keys())
-            values = [float(param_dict[k]) for k in keys]
+            fold_changes = [float(param_dict[k]) for k in keys]
+            values = [fold_changes[i] * p[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
             p = change_parameters(p, values, ix=keys)
         
         # Run simulation before perturbation
@@ -165,18 +182,18 @@ def run_dynamic():
         X['L'] = X['L'] * 0.7  # 0.7 mM lactate
 
         # Scale insulin concentration
-        X['I'] = X['I'] / I0  * 5 # Scale to typical insulin levels Insulin in humnas
+        X['I'] = X['I'] / I0  * 0.4 # Scale to typical insulin levels Insulin in mice
         
         # Create individual plots
-        variables = ['G', 'F', 'K', 'I']
-        labels = ['Glucose (mM)', 'Fatty acids (mM)', '3-Hydroxybutyrate (mM)', 'Insulin (a.u.)']
+        variables = ['G','L' ,'F', 'K', 'I']
+        labels = ['Glucose (mM)','Lactate (mM)', 'Fatty acids (mM)', '3-Hydroxybutyrate (mM)', 'Insulin (ng/mL)']
         
         def plot_timeseries(ax, var, label):
             ax.plot(X['time'], X[var], linewidth=2, color='#0891b2')  # cyan-600 primary color
             ax.axvline(time_perturbation, color='#f97316', linestyle='--', alpha=0.5)  # orange-500 accent
             ax.set_xlabel('Time (min)')
             ax.set_ylabel(label)
-            ax.set_title(f'{label.split(" ")[0]} Response')
+            ax.set_ylim(bottom=0)
             sns.despine(ax=ax)
         
         plots = []
@@ -212,16 +229,17 @@ def run_clamp():
         infusion_type = data.get('infusion_type', 'none')
         infusion_amount = float(data.get('infusion_amount', 0))
         
-        # Additional parameter perturbations
+        # Additional parameter perturbations (as fold changes)
         param_dict = data.get('parameters', {})
         
         # Get base parameters
         p = ref_parameters()
         
-        # Apply parameter changes
+        # Apply parameter changes as fold changes
         if param_dict:
             keys = list(param_dict.keys())
-            values = [float(param_dict[k]) for k in keys]
+            fold_changes = [float(param_dict[k]) for k in keys]
+            values = [fold_changes[i] * p[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
             p = change_parameters(p, values, ix=keys)
         
         # Set insulin dose based on selection (matching hyperinsulinemic_euglycemic_clamp.ipynb)
@@ -415,16 +433,17 @@ def run_tolerance_tests():
         time_max = float(data.get('time_max', 120))
         bolus_time = float(data.get('bolus_time', 10))
         
-        # Additional parameter perturbations
+        # Additional parameter perturbations (as fold changes)
         param_dict = data.get('parameters', {})
         
         # Get base parameters
         p_control = ref_parameters()
         
-        # Apply parameter changes to control
+        # Apply parameter changes as fold changes to control
         if param_dict:
             keys = list(param_dict.keys())
-            values = [float(param_dict[k]) for k in keys]
+            fold_changes = [float(param_dict[k]) for k in keys]
+            values = [fold_changes[i] * p_control[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
             p_control = change_parameters(p_control, values, ix=keys)
         
         # Create knockout parameters
@@ -518,16 +537,17 @@ def run_obesity():
         perturbation_param = data.get('perturbation_param', None)
         perturbation_value = float(data.get('perturbation_value', 1.0))
         
-        # Additional parameter perturbations
+        # Additional parameter perturbations (as fold changes)
         param_dict = data.get('parameters', {})
         
         # Get base parameters
         p = ref_parameters()
         
-        # Apply parameter changes
+        # Apply parameter changes as fold changes
         if param_dict:
             keys = list(param_dict.keys())
-            values = [float(param_dict[k]) for k in keys]
+            fold_changes = [float(param_dict[k]) for k in keys]
+            values = [fold_changes[i] * p[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
             p = change_parameters(p, values, ix=keys)
         
         # Run simulations for different fat fractions
@@ -649,16 +669,17 @@ def run_treatment():
         treatment_params = json.loads(data.get('treatment_params', '[]'))
         treatment_folds = json.loads(data.get('treatment_folds', '[]'))
         
-        # Additional parameter perturbations
+        # Additional parameter perturbations (as fold changes)
         param_dict = data.get('parameters', {})
         
         # Get base parameters
         p = ref_parameters()
         
-        # Apply parameter changes
+        # Apply parameter changes as fold changes
         if param_dict:
             keys = list(param_dict.keys())
-            values = [float(param_dict[k]) for k in keys]
+            fold_changes = [float(param_dict[k]) for k in keys]
+            values = [fold_changes[i] * p[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
             p = change_parameters(p, values, ix=keys)
         
         # Create perturbed condition (diseased state)
