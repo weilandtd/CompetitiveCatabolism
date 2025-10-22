@@ -424,95 +424,130 @@ def run_clamp():
 
 @app.route('/api/run_tolerance_tests', methods=['POST'])
 def run_tolerance_tests():
-    """Run GTT/ITT simulation"""
+    """Run GTT and ITT simulations side by side"""
     try:
         data = request.json
         
-        test_type = data.get('test_type', 'GTT')
-        knockout = data.get('knockout', 'with_SI')  # Adipose insulin receptor K/O
+        # Get parameters
         time_max = float(data.get('time_max', 120))
-        bolus_time = float(data.get('bolus_time', 10))
+        parameter = data.get('parameter', None)  # Parameter to perturb
+        fold_change = float(data.get('fold_change', 1.0))  # Fold change for perturbation
         
         # Additional parameter perturbations (as fold changes)
         param_dict = data.get('parameters', {})
         
         # Get base parameters
-        p_control = ref_parameters()
+        p_baseline = ref_parameters()
         
-        # Apply parameter changes as fold changes to control
+        # Apply additional parameter changes as fold changes
         if param_dict:
             keys = list(param_dict.keys())
-            fold_changes = [float(param_dict[k]) for k in keys]
-            values = [fold_changes[i] * p_control[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
-            p_control = change_parameters(p_control, values, ix=keys)
+            fold_changes_add = [float(param_dict[k]) for k in keys]
+            values = [fold_changes_add[i] * p_baseline[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
+            p_baseline = change_parameters(p_baseline, values, ix=keys)
         
-        # Create knockout parameters
-        p_ko = change_parameters(p_control, [False], ix=[knockout])
+        # Create perturbed parameters if specified
+        if parameter:
+            p_perturbed = change_parameters(p_baseline, 
+                                           [fold_change * p_baseline[PARAMETER_NAMES.index(parameter)]], 
+                                           ix=[parameter])
+        else:
+            p_perturbed = p_baseline
         
         # Define simulation
         time = np.linspace(0, time_max, 200)
         
-        if test_type == 'GTT':
-            # Glucose bolus
-            glucose_bolus = 2.0  # 2x normal glucose
-            X_control, _ = perturbation_dynamics(time, 1.0, p=p_control, v_in_G=glucose_bolus)
-            X_ko, _ = perturbation_dynamics(time, 1.0, p=p_ko, v_in_G=glucose_bolus)
-        else:  # ITT
-            # Insulin bolus
-            insulin_bolus = 5.0  # 5x normal insulin
-            X_control, _ = perturbation_dynamics(time, 1.0, p=p_control, v_in_I=insulin_bolus)
-            X_ko, _ = perturbation_dynamics(time, 1.0, p=p_ko, v_in_I=insulin_bolus)
+        # Run GTT (Glucose Tolerance Test)
+        # Simulate glucose bolus injection as in notebook: R_glucose = 0.06 for first 15 min
+        time_gtt_1 = np.linspace(0, 15, 50)
+        X_gtt_baseline_1, _ = perturbation_dynamics(time_gtt_1, 1.0, p=p_baseline, R_glucose=0.06)
+        time_gtt_2 = np.linspace(15, time_max, 150)
+        x0_gtt_baseline = X_gtt_baseline_1.iloc[-1][['L', 'G', 'F', 'K', 'I', 'IA']].values
+        X_gtt_baseline_2, _ = perturbation_dynamics(time_gtt_2, 1.0, X0=x0_gtt_baseline, p=p_baseline, R_glucose=0.0)
+        X_gtt_baseline = pd.concat([X_gtt_baseline_1, X_gtt_baseline_2], axis=0).reset_index(drop=True)
+        
+        X_gtt_perturbed_1, _ = perturbation_dynamics(time_gtt_1, 1.0, p=p_perturbed, R_glucose=0.06)
+        x0_gtt_perturbed = X_gtt_perturbed_1.iloc[-1][['L', 'G', 'F', 'K', 'I', 'IA']].values
+        X_gtt_perturbed_2, _ = perturbation_dynamics(time_gtt_2, 1.0, X0=x0_gtt_perturbed, p=p_perturbed, R_glucose=0.0)
+        X_gtt_perturbed = pd.concat([X_gtt_perturbed_1, X_gtt_perturbed_2], axis=0).reset_index(drop=True)
+        
+        # Run ITT (Insulin Tolerance Test)
+        # Simulate insulin bolus injection by setting initial insulin concentration as in notebook
+        time_itt_1 = np.linspace(0, 1, 10)
+        X_itt_baseline_1, _ = perturbation_dynamics(time_itt_1, 1.0, p=p_baseline)
+        time_itt_2 = np.linspace(1, time_max, 190)
+        x0_itt_baseline = steady_state(1, p_baseline)
+        x0_itt_baseline[-2] = I0 * 60  # Set insulin to 60× basal
+        X_itt_baseline_2, _ = perturbation_dynamics(time_itt_2, 1.0, X0=x0_itt_baseline, p=p_baseline)
+        X_itt_baseline = pd.concat([X_itt_baseline_1, X_itt_baseline_2], axis=0).reset_index(drop=True)
+        
+        X_itt_perturbed_1, _ = perturbation_dynamics(time_itt_1, 1.0, p=p_perturbed)
+        x0_itt_perturbed = steady_state(1, p_perturbed)
+        x0_itt_perturbed[-2] = I0 * 60  # Set insulin to 60× basal
+        X_itt_perturbed_2, _ = perturbation_dynamics(time_itt_2, 1.0, X0=x0_itt_perturbed, p=p_perturbed)
+        X_itt_perturbed = pd.concat([X_itt_perturbed_1, X_itt_perturbed_2], axis=0).reset_index(drop=True)
         
         # Scale concentrations
-        for X in [X_control, X_ko]:
+        for X in [X_gtt_baseline, X_gtt_perturbed, X_itt_baseline, X_itt_perturbed]:
             X['G'] = X['G'] * 7
-            X['I'] = X['I'] * 1.0
         
-        # Create individual plots
+        # Create plots
         plots = []
         
-        # Plot glucose response
-        def plot_glucose_response(ax):
-            ax.plot(X_control['time'], X_control['G'], linewidth=2, 
-                       color='#64748b', label='Control')  # slate-500
-            ax.plot(X_ko['time'], X_ko['G'], linewidth=2, 
-                       color='#0891b2', label='K/O', linestyle='--')  # cyan-600
+        # GTT plot - Glucose response
+        def plot_gtt(ax):
+            ax.plot(X_gtt_baseline['time'], X_gtt_baseline['G'], linewidth=2, 
+                   color='#64748b', label='Baseline')  # slate-500
+            if parameter:
+                ax.plot(X_gtt_perturbed['time'], X_gtt_perturbed['G'], linewidth=2, 
+                       color='#f97316', label='Perturbed', linestyle='--')  # orange-500
             ax.set_xlabel('Time (min)')
             ax.set_ylabel('Glucose (mM)')
-            ax.set_title(f'{test_type} - Glucose Response')
+            ax.set_title('Glucose Tolerance Test (GTT)')
             ax.legend()
+            ax.set_ylim(bottom=0)
             sns.despine(ax=ax)
         
-        plot_data = create_individual_plot(plot_glucose_response)
+        plot_data = create_individual_plot(plot_gtt)
         plots.append({
-            'id': 'glucose_response',
-            'title': f'{test_type} - Glucose Response',
+            'id': 'gtt_response',
+            'title': 'Glucose Tolerance Test',
             'data': plot_data
         })
         
-        # Plot insulin response
-        def plot_insulin_response(ax):
-            ax.plot(X_control['time'], X_control['I'], linewidth=2, 
-                       color='#64748b', label='Control')  # slate-500
-            ax.plot(X_ko['time'], X_ko['I'], linewidth=2, 
-                       color='#0891b2', label='K/O', linestyle='--')  # cyan-600
+        # ITT plot - Glucose response
+        def plot_itt(ax):
+            ax.plot(X_itt_baseline['time'], X_itt_baseline['G'], linewidth=2, 
+                   color='#64748b', label='Baseline')  # slate-500
+            if parameter:
+                ax.plot(X_itt_perturbed['time'], X_itt_perturbed['G'], linewidth=2, 
+                       color='#f97316', label='Perturbed', linestyle='--')  # orange-500
             ax.set_xlabel('Time (min)')
-            ax.set_ylabel('Insulin (a.u.)')
-            ax.set_title(f'{test_type} - Insulin Response')
+            ax.set_ylabel('Glucose (mM)')
+            ax.set_title('Insulin Tolerance Test (ITT)')
             ax.legend()
+            ax.set_ylim(bottom=0)   
             sns.despine(ax=ax)
         
-        plot_data = create_individual_plot(plot_insulin_response)
+        plot_data = create_individual_plot(plot_itt)
         plots.append({
-            'id': 'insulin_response',
-            'title': f'{test_type} - Insulin Response',
+            'id': 'itt_response',
+            'title': 'Insulin Tolerance Test',
             'data': plot_data
         })
         
-        # Prepare data
-        X_control['group'] = 'Control'
-        X_ko['group'] = 'K/O'
-        data_csv = pd.concat([X_control, X_ko]).to_csv(index=False)
+        # Prepare data for download
+        X_gtt_baseline['test'] = 'GTT'
+        X_gtt_baseline['condition'] = 'Baseline'
+        X_gtt_perturbed['test'] = 'GTT'
+        X_gtt_perturbed['condition'] = 'Perturbed'
+        X_itt_baseline['test'] = 'ITT'
+        X_itt_baseline['condition'] = 'Baseline'
+        X_itt_perturbed['test'] = 'ITT'
+        X_itt_perturbed['condition'] = 'Perturbed'
+        
+        X_all = pd.concat([X_gtt_baseline, X_gtt_perturbed, X_itt_baseline, X_itt_perturbed])
+        data_csv = X_all.to_csv(index=False)
         
         return jsonify({
             'success': True,
