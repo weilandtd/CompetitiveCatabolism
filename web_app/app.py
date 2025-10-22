@@ -560,15 +560,14 @@ def run_tolerance_tests():
 
 @app.route('/api/run_obesity', methods=['POST'])
 def run_obesity():
-    """Run obesity simulation"""
+    """Run obesity simulation with mouse or human data overlay"""
     try:
         data = request.json
         
         # Get parameters
-        fat_fractions_str = data.get('fat_fractions', 
-            '1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0')
-        # Parse comma-separated string into list of floats
-        fat_fractions = [float(x.strip()) for x in fat_fractions_str.split(',')]
+        species = data.get('species', 'mouse')  # 'mouse' or 'human'
+        sex = data.get('sex', 'male')  # 'male' or 'female' (for human only)
+        show_data = data.get('show_data', True)
         perturbation_param = data.get('perturbation_param', None)
         perturbation_value = float(data.get('perturbation_value', 1.0))
         
@@ -585,103 +584,254 @@ def run_obesity():
             values = [fold_changes[i] * p[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
             p = change_parameters(p, values, ix=keys)
         
-        # Run simulations for different fat fractions
-        results = []
-        
-        for A in fat_fractions:
-            X = perturbation_steady_state(A, p=p)
+        # Run simulations
+        if species == 'mouse':
+            # Mouse: fat mass in grams (3.5g baseline for C57BL/6J)
+            # Adiposity range 1 to 10 (fold change)
+            A = np.linspace(1, 10, 100)
+            fat_mass_g = A * 3.5  # Convert to grams
             
-            # Scale concentrations
-            G = X[1] * 7  # glucose
-            I = X[4]  # insulin
-            HOMA_IR = G * I
+            results = [perturbation_steady_state(a, p=p) for a in A]
+            G = np.array([r[1] for r in results]) * 90  # Scale to mg/dL
+            I = np.array([r[-1] for r in results]) / I0 * 0.4  # Scale to ng/mL
+            HOMA_IR = (G * I * 6) / 405  # Convert insulin to uU/mL (* 6)
             
-            results.append({
-                'fat_fraction': A,
-                'glucose': G,
-                'insulin': I,
-                'HOMA_IR': HOMA_IR
-            })
+            x_axis = fat_mass_g
+            x_label = 'Fat mass (g)'
+            
+        else:  # human
+            # Human: body fat percentage
+            A = np.linspace(1.0, 3, 100)
+            
+            results = [perturbation_steady_state(a, p=p) for a in A]
+            G = np.array([r[1] for r in results]) * 85  # Scale to mg/dL
+            I = np.array([r[-1] for r in results]) * 5.0 / I0  # Scale to uU/mL
+            HOMA_IR = (G * I) / 405
+            
+            # Convert adiposity to body fat percentage (sex-specific)
+            if sex == 'male':
+                HFP = 0.18  # Healthy fat percentage for men
+                L = (1.0 - HFP) / HFP
+                body_fat_pct = A / (A + L) * 100
+            else:  # female
+                HFP = 0.30  # Healthy fat percentage for women
+                L = (1.0 - HFP) / HFP
+                body_fat_pct = A / (A + L) * 100
+            
+            x_axis = body_fat_pct
+            x_label = 'Body fat percentage (%)'
         
-        df_control = pd.DataFrame(results)
+        # Run perturbed simulation if specified
+        G_perturbed = None
+        I_perturbed = None
+        HOMA_IR_perturbed = None
         
-        # If perturbation specified, run perturbed simulation
-        df_perturbed = None
         if perturbation_param:
-            p_perturbed = change_parameters(p, [perturbation_value], ix=[perturbation_param])
+            p_perturbed = change_parameters(p, [perturbation_value * p[PARAMETER_NAMES.index(perturbation_param)]], 
+                                           ix=[perturbation_param])
             
-            results_perturbed = []
-            for A in fat_fractions:
-                X = perturbation_steady_state(A, p=p_perturbed)
-                
-                G = X[1] * 7
-                I = X[4]
-                HOMA_IR = G * I
-                
-                results_perturbed.append({
-                    'fat_fraction': A,
-                    'glucose': G,
-                    'insulin': I,
-                    'HOMA_IR': HOMA_IR
-                })
-            
-            df_perturbed = pd.DataFrame(results_perturbed)
+            if species == 'mouse':
+                A_perturbed = np.linspace(1, 10, 100)
+                results_perturbed = [perturbation_steady_state(a, p=p_perturbed) for a in A_perturbed]
+                G_perturbed = np.array([r[1] for r in results_perturbed]) * 90
+                I_perturbed = np.array([r[-1] for r in results_perturbed]) / I0 * 0.4
+                HOMA_IR_perturbed = (G_perturbed * I_perturbed * 6) / 405
+            else:  # human
+                A_perturbed = np.linspace(1.0, 3, 100)
+                results_perturbed = [perturbation_steady_state(a, p=p_perturbed) for a in A_perturbed]
+                G_perturbed = np.array([r[1] for r in results_perturbed]) * 85
+                I_perturbed = np.array([r[-1] for r in results_perturbed]) * 5.0 / I0
+                HOMA_IR_perturbed = (G_perturbed * I_perturbed) / 405
         
-        # Load NHANES data for comparison
-        nhanes_file = os.path.join(os.path.dirname(__file__), '..', 'multi_nutrient_model', 
-                                   'data', 'NHANES Demo Anthro Glc Ins.csv')
+        # Load experimental data
+        experimental_data = None
+        if show_data:
+            if species == 'mouse':
+                # Load BXD mouse data
+                mouse_file = os.path.join(os.path.dirname(__file__), '..', 'multi_nutrient_model', 
+                                         'data', 'BXD_metabolic_traits.tsv')
+                if os.path.exists(mouse_file):
+                    df_mouse = pd.read_table(mouse_file, index_col=0, sep='\t')
+                    # Process data as in notebook
+                    df_mouse = df_mouse.drop(columns=[c for c in df_mouse.columns if c.endswith('_SE')])
+                    df_mouse = df_mouse.replace('x', np.nan)
+                    data_columns = df_mouse.columns[df_mouse.columns.get_loc('C57BL/6J'):]
+                    df_mouse[data_columns] = df_mouse[data_columns].astype(float)
+                    data_averaged = df_mouse.groupby(['Trait','Diet'])[data_columns].median().reset_index()
+                    data_melt = data_averaged.melt(id_vars=['Trait','Diet'], var_name='Strain', value_name='Value')
+                    data_pivot = data_melt.pivot_table(index=['Strain','Diet'], columns='Trait', values='Value').reset_index()
+                    
+                    experimental_data = {
+                        'fat_mass': data_pivot['Fat mass [g]'].values,
+                        'glucose': data_pivot['Glucose [mg/dl]'].values,
+                        'insulin': data_pivot['Insulin [ng/ml]'].values,
+                        'homa_ir': (data_pivot['Insulin [ng/ml]'] * 6 * data_pivot['Glucose [mg/dl]'] / 405).values
+                    }
+            else:  # human
+                # Load NHANES data
+                nhanes_file = os.path.join(os.path.dirname(__file__), '..', 'multi_nutrient_model', 
+                                          'data', 'NHANES Demo Anthro Glc Ins.csv')
+                if os.path.exists(nhanes_file):
+                    df_nhanes = pd.read_csv(nhanes_file, index_col=0)
+                    # Process as in notebook
+                    df_nhanes.rename(columns={
+                        'lbxglu': 'Glucose (mg/dL)',
+                        'lbxin': 'Insulin (uU/mL)',
+                        'bmxwaist': 'Waist circumference (cm)',
+                        'bmxht': 'Height (cm)',
+                        'bmxwt': 'Weight (kg)',
+                        'bmxbmi': 'BMI (kg/m²)',
+                        'riagendr': 'Gender',
+                        'ridageyr': 'Age (years)',
+                        'diq050': 'Taking insulin'
+                    }, inplace=True)
+                    
+                    # Filter and process
+                    df_nhanes = df_nhanes.dropna(subset=['Gender', 'Waist circumference (cm)', 'Height (cm)', 
+                                                          'Glucose (mg/dL)', 'Insulin (uU/mL)'])
+                    df_nhanes = df_nhanes[(df_nhanes['Glucose (mg/dL)'] > 40)]
+                    df_nhanes = df_nhanes[(df_nhanes['Insulin (uU/mL)'] > 1)]
+                    df_nhanes = df_nhanes[(df_nhanes['Age (years)'] >= 20) & (df_nhanes['Age (years)'] <= 60)]
+                    df_nhanes = df_nhanes[df_nhanes['Taking insulin'] == 2]  # 2 = No
+                    df_nhanes = df_nhanes[df_nhanes['phafsthr'] > 6]  # Fasting > 6 hours
+                    
+                    # Calculate body fat percentage
+                    def body_fat_pct_waist(height, waist, gender):
+                        if gender == 1:  # Male
+                            return 64 - (20 * (height / waist))
+                        else:  # Female
+                            return 76 - (20 * (height / waist))
+                    
+                    df_nhanes['body_fat_percentage'] = df_nhanes.apply(
+                        lambda row: body_fat_pct_waist(row['Height (cm)'], row['Waist circumference (cm)'], 
+                                                       row['Gender']), axis=1
+                    )
+                    df_nhanes['HOMA-IR'] = (df_nhanes['Insulin (uU/mL)'] * df_nhanes['Glucose (mg/dL)']) / 405
+                    
+                    # Filter by sex
+                    sex_code = 1 if sex == 'male' else 2
+                    df_sex = df_nhanes[df_nhanes['Gender'] == sex_code]
+                    
+                    experimental_data = {
+                        'body_fat_pct': df_sex['body_fat_percentage'].values,
+                        'glucose': df_sex['Glucose (mg/dL)'].values,
+                        'insulin': df_sex['Insulin (uU/mL)'].values,
+                        'homa_ir': df_sex['HOMA-IR'].values
+                    }
         
-        df_nhanes = None
-        if os.path.exists(nhanes_file):
-            df_nhanes = pd.read_csv(nhanes_file)
-        
-        # Create individual plots
+        # Create plots
         plots = []
-        variables = ['glucose', 'insulin', 'HOMA_IR']
-        labels = ['Glucose (mM)', 'Insulin (a.u.)', 'HOMA-IR']
         
-        def plot_adiposity(ax, var, label):
-            # Plot model results
-            ax.plot(df_control['fat_fraction'], df_control[var], 
-                       linewidth=2, color='#0891b2', label='Model')  # cyan-600
+        # Glucose plot
+        def plot_glucose(ax):
+            ax.plot(x_axis, G, linewidth=2, color='#0891b2', label='Model')  # cyan-600
+            if G_perturbed is not None:
+                ax.plot(x_axis, G_perturbed, linewidth=2, color='#f97316', 
+                       linestyle='--', label='Perturbed')  # orange-500
             
-            if df_perturbed is not None:
-                ax.plot(df_perturbed['fat_fraction'], df_perturbed[var], 
-                          linewidth=2, color='#f97316', linestyle='--', label='Perturbed')  # orange-500
+            if experimental_data and show_data:
+                if species == 'mouse':
+                    ax.scatter(experimental_data['fat_mass'], experimental_data['glucose'],
+                              alpha=0.3, s=20, color='#64748b', label='BXD mice')  # slate-500
+                else:
+                    ax.scatter(experimental_data['body_fat_pct'], experimental_data['glucose'],
+                              alpha=0.3, s=10, color='#06b6d4' if sex == 'male' else '#fb7185',
+                              label=f'{sex.capitalize()} (NHANES)')  # cyan-500 male, rose-400 female
             
-            # Plot NHANES data if available
-            if df_nhanes is not None and var in df_nhanes.columns:
-                # Assuming fat_fraction or BMI column exists
-                if 'fat_fraction' in df_nhanes.columns:
-                    # Split by sex if available
-                    if 'Sex' in df_nhanes.columns:
-                        for sex, marker, color in [('Male', 'o', '#0e7490'), ('Female', 's', '#f59e0b')]:  # cyan-700, amber-500
-                            subset = df_nhanes[df_nhanes['Sex'] == sex]
-                            ax.scatter(subset['fat_fraction'], subset[var], 
-                                         alpha=0.3, s=10, marker=marker, 
-                                         color=color, label=f'{sex} (NHANES)')
-            
-            ax.set_xlabel('Fat Fraction (relative to control)')
-            ax.set_ylabel(label)
-            ax.set_title(f'{label} vs Adiposity')
-            ax.legend()
+            ax.set_xlabel(x_label)
+            ax.set_ylabel('Fasting glucose (mg/dL)')
+            ax.set_title('Glucose vs Adiposity')
+            if show_data or G_perturbed is not None:
+                ax.legend()
+            ax.set_ylim(bottom=0)
             sns.despine(ax=ax)
         
-        for var, label in zip(variables, labels):
-            plot_data = create_individual_plot(plot_adiposity, var=var, label=label)
-            plots.append({
-                'id': f'{var}_adiposity',
-                'title': f'{label} vs Adiposity',
-                'data': plot_data
-            })
+        plot_data = create_individual_plot(plot_glucose)
+        plots.append({
+            'id': 'glucose_adiposity',
+            'title': 'Glucose vs Adiposity',
+            'data': plot_data
+        })
         
-        # Prepare data
-        df_control['group'] = 'Control'
-        if df_perturbed is not None:
-            df_perturbed['group'] = 'Perturbed'
-            data_csv = pd.concat([df_control, df_perturbed]).to_csv(index=False)
-        else:
-            data_csv = df_control.to_csv(index=False)
+        # Insulin plot
+        def plot_insulin(ax):
+            ax.plot(x_axis, I, linewidth=2, color='#0891b2', label='Model')  # cyan-600
+            if I_perturbed is not None:
+                ax.plot(x_axis, I_perturbed, linewidth=2, color='#f97316', 
+                       linestyle='--', label='Perturbed')  # orange-500
+            
+            if experimental_data and show_data:
+                if species == 'mouse':
+                    ax.scatter(experimental_data['fat_mass'], experimental_data['insulin'],
+                              alpha=0.3, s=20, color='#64748b', label='BXD mice')  # slate-500
+                else:
+                    ax.scatter(experimental_data['body_fat_pct'], experimental_data['insulin'],
+                              alpha=0.3, s=10, color='#06b6d4' if sex == 'male' else '#fb7185',
+                              label=f'{sex.capitalize()} (NHANES)')  # cyan-500 male, rose-400 female
+            
+            ax.set_xlabel(x_label)
+            ylabel = 'Fasting insulin (ng/mL)' if species == 'mouse' else 'Fasting insulin (uU/mL)'
+            ax.set_ylabel(ylabel)
+            ax.set_title('Insulin vs Adiposity')
+            if show_data or I_perturbed is not None:
+                ax.legend()
+            ax.set_ylim(bottom=0)
+            sns.despine(ax=ax)
+        
+        plot_data = create_individual_plot(plot_insulin)
+        plots.append({
+            'id': 'insulin_adiposity',
+            'title': 'Insulin vs Adiposity',
+            'data': plot_data
+        })
+        
+        # HOMA-IR plot
+        def plot_homa_ir(ax):
+            ax.plot(x_axis, HOMA_IR, linewidth=2, color='#0891b2', label='Model')  # cyan-600
+            if HOMA_IR_perturbed is not None:
+                ax.plot(x_axis, HOMA_IR_perturbed, linewidth=2, color='#f97316', 
+                       linestyle='--', label='Perturbed')  # orange-500
+            
+            if experimental_data and show_data:
+                if species == 'mouse':
+                    ax.scatter(experimental_data['fat_mass'], experimental_data['homa_ir'],
+                              alpha=0.3, s=20, color='#64748b', label='BXD mice')  # slate-500
+                else:
+                    ax.scatter(experimental_data['body_fat_pct'], experimental_data['homa_ir'],
+                              alpha=0.3, s=10, color='#06b6d4' if sex == 'male' else '#fb7185',
+                              label=f'{sex.capitalize()} (NHANES)')  # cyan-500 male, rose-400 female
+            
+            ax.set_xlabel(x_label)
+            ax.set_ylabel('HOMA-IR')
+            ax.set_title('HOMA-IR vs Adiposity')
+            if HOMA_IR_perturbed is not None:
+                ax.legend()
+            ax.set_ylim(bottom=0)
+            sns.despine(ax=ax)
+        
+        plot_data = create_individual_plot(plot_homa_ir)
+        plots.append({
+            'id': 'homa_ir_adiposity',
+            'title': 'HOMA-IR vs Adiposity',
+            'data': plot_data
+        })
+        
+        # Prepare CSV data
+        df_results = pd.DataFrame({
+            'x_axis': x_axis,
+            'glucose': G,
+            'insulin': I,
+            'homa_ir': HOMA_IR,
+            'species': species,
+            'sex': sex if species == 'human' else 'N/A'
+        })
+        
+        if G_perturbed is not None:
+            df_results['glucose_perturbed'] = G_perturbed
+            df_results['insulin_perturbed'] = I_perturbed
+            df_results['homa_ir_perturbed'] = HOMA_IR_perturbed
+        
+        data_csv = df_results.to_csv(index=False)
         
         return jsonify({
             'success': True,
@@ -690,7 +840,8 @@ def run_obesity():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 400
 
 @app.route('/api/run_treatment', methods=['POST'])
 def run_treatment():

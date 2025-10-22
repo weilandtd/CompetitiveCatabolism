@@ -5,10 +5,111 @@
     <title>Obesity Simulation - Competitive Catabolism</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Toggle switch container */
+        .toggle-container {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+        
+        .toggle-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        /* Toggle switch - pill style */
+        .toggle-switch {
+            position: relative;
+            display: inline-flex;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 20px;
+            overflow: hidden;
+            background-color: #e2e8f0;
+            border: 2px solid #cbd5e1;
+        }
+        
+        .toggle-switch input[type="checkbox"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+        
+        .toggle-switch input:disabled ~ .toggle-pill {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .toggle-pill {
+            display: flex;
+            height: 32px;
+        }
+        
+        .toggle-label-left,
+        .toggle-label-right {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            min-width: 60px;
+        }
+        
+        /* Left option (unchecked state) */
+        .toggle-switch input:not(:checked) ~ .toggle-pill .toggle-label-left {
+            background-color: #0891b2;
+            color: white;
+        }
+        
+        .toggle-switch input:not(:checked) ~ .toggle-pill .toggle-label-right {
+            background-color: transparent;
+            color: #64748b;
+        }
+        
+        /* Right option (checked state) */
+        .toggle-switch input:checked ~ .toggle-pill .toggle-label-left {
+            background-color: transparent;
+            color: #64748b;
+        }
+        
+        .toggle-switch input:checked ~ .toggle-pill .toggle-label-right {
+            background-color: #0891b2;
+            color: white;
+        }
+        
+        /* Hover effects */
+        .toggle-switch:hover .toggle-label-left,
+        .toggle-switch:hover .toggle-label-right {
+            opacity: 0.9;
+        }
+        
+        .toggle-note {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 2px;
+            user-select: none;
+        }
+        
+        /* Make toggles responsive */
+        @media (max-width: 500px) {
+            .toggle-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
-        <h1>⚖️ Obesity Simulation</h1>
+        <h1>Obesity Simulation</h1>
         <p>Metabolic Effects of Adiposity with NHANES Data Comparison</p>
         <a href="/" class="btn-secondary">← Back to Home</a>
     </header>
@@ -18,10 +119,36 @@
             <div class="controls-panel">
                 <h2>Simulation Parameters</h2>
                 
+                <div class="toggle-container">
+                    <div class="toggle-group">
+                        <span style="font-weight: 500; color: #1e293b; font-size: 14px; user-select: none;">Species</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="species-toggle">
+                            <div class="toggle-pill">
+                                <span class="toggle-label-left">Mouse</span>
+                                <span class="toggle-label-right">Human</span>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <div class="toggle-group">
+                        <span style="font-weight: 500; color: #1e293b; font-size: 14px; user-select: none;">Sex</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="sex-toggle">
+                            <div class="toggle-pill">
+                                <span class="toggle-label-left">Male</span>
+                                <span class="toggle-label-right">Female</span>
+                            </div>
+                        </label>
+                        <small class="toggle-note" id="sex-note">Only applies to human data</small>
+                    </div>
+                </div>
+                
                 <div class="form-group">
-                    <label for="fat_fractions">Fat Fractions (comma-separated)</label>
-                    <input type="text" id="fat_fractions" value="1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0">
-                    <small>Relative to baseline adiposity (1.0 = normal)</small>
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="show-data" checked style="margin-right: 8px;">
+                        Show experimental data overlay
+                    </label>
                 </div>
                 
                 <h3>Optional Perturbation (shown as dashed line)</h3>
@@ -59,9 +186,10 @@
                 </div>
                 <div id="plot-container" style="display: none;">
                     <div id="plots-grid" class="plots-grid"></div>
-                    <p class="info-text">
-                        <strong>Note:</strong> Simulation results (solid lines) are compared with NHANES human data (scattered points) 
-                        when available. Dashed lines show perturbed conditions.
+                    <p class="info-text" id="data-note">
+                        <strong>Note:</strong> Simulation results (solid black lines) show model predictions.
+                        When data overlay is enabled, mouse data from BXD strains or human NHANES data (scattered points) 
+                        are shown for comparison. Dashed orange lines show perturbed conditions.
                     </p>
                     <button id="download-btn" class="btn-secondary" style="margin-top: 20px;">Download Data (CSV)</button>
                 </div>
@@ -89,7 +217,9 @@
         });
         
         async function runSimulation() {
-            const fatFractions = document.getElementById('fat_fractions').value;
+            const species = document.getElementById('species-toggle').checked ? 'human' : 'mouse';
+            const sex = document.getElementById('sex-toggle').checked ? 'female' : 'male';
+            const showData = document.getElementById('show-data').checked;
             const perturbationParam = document.getElementById('perturbation_param').value;
             const perturbationValue = document.getElementById('perturbation_value').value;
             
@@ -101,7 +231,9 @@
             });
             
             const data = {
-                fat_fractions: fatFractions,
+                species: species,
+                sex: sex,
+                show_data: showData,
                 perturbation_param: perturbationParam || null,
                 perturbation_value: parseFloat(perturbationValue),
                 parameters: additionalParams
@@ -152,6 +284,31 @@
         }
         
         document.getElementById('run-btn').addEventListener('click', runSimulation);
+        
+        // Update sex toggle state based on species selection
+        function updateSexToggleState() {
+            const speciesToggle = document.getElementById('species-toggle');
+            const sexToggle = document.getElementById('sex-toggle');
+            const sexNote = document.getElementById('sex-note');
+            
+            if (!speciesToggle.checked) {  // Mouse is selected
+                sexToggle.disabled = true;
+                sexToggle.parentElement.style.opacity = '0.5';
+                sexToggle.parentElement.style.cursor = 'not-allowed';
+                sexNote.style.color = '#94a3b8';
+            } else {  // Human is selected
+                sexToggle.disabled = false;
+                sexToggle.parentElement.style.opacity = '1';
+                sexToggle.parentElement.style.cursor = 'pointer';
+                sexNote.style.color = '#0891b2';
+            }
+        }
+        
+        // Add event listener to species toggle
+        document.getElementById('species-toggle').addEventListener('change', updateSexToggleState);
+        
+        // Initialize state on load
+        updateSexToggleState();
         
         // Run default simulation on page load
         window.addEventListener('DOMContentLoaded', function() {
