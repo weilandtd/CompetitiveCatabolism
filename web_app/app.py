@@ -1089,10 +1089,11 @@ def run_treatment():
         # Prepare data
         data_csv = df_treatment.to_csv(index=False)
         
-        # Add top perturbations info with direction
+        # Add top perturbations info with direction and description
         top_perturbations = [
             {
                 'parameter': p, 
+                'description': PARAMETER_DESCRIPTIONS.get(p, p),
                 'sensitivity': float(s),
                 'abs_sensitivity': float(abs(s)),
                 'direction': 'increase' if s < 0 else 'decrease'  # Opposite of sensitivity

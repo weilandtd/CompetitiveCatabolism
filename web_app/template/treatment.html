@@ -119,8 +119,9 @@
                                 <tr>
                                     <th>Rank</th>
                                     <th>Parameter</th>
+                                    <th>Description</th>
+                                    <th>Sensitivity</th>
                                     <th>Treatment Direction</th>
-                                    <th>|Sensitivity|</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -254,14 +255,14 @@
                             const row = tbody.insertRow();
                             row.insertCell(0).textContent = index + 1;
                             row.insertCell(1).textContent = item.parameter;
+                            row.insertCell(2).textContent = item.description;
+                            row.insertCell(3).textContent = item.sensitivity.toFixed(3);
                             
                             // Show direction with arrow
-                            const directionCell = row.insertCell(2);
+                            const directionCell = row.insertCell(4);
                             const arrow = item.direction === 'increase' ? '↑' : '↓';
                             directionCell.textContent = `${arrow} ${item.direction}`;
                             directionCell.style.color = item.direction === 'increase' ? '#10b981' : '#3b82f6';
-                            
-                            row.insertCell(3).textContent = item.abs_sensitivity.toFixed(3);
                         });
                     }
                 } else {
