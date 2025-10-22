@@ -866,10 +866,14 @@ def run_treatment():
         disease_param = data.get('disease_param', None)  # Optional disease parameter
         disease_fold = float(data.get('disease_fold', 2.0)) if disease_param else None
         insulin_dose_u_kg_day = float(data.get('insulin_dose', 0.2))  # Insulin dose in U/kg/day (default 0.2)
+        ranking_variable = data.get('ranking_variable', 'HOMA_IR')  # Variable to rank by
         treatment_params = json.loads(data.get('treatment_params', '[]'))
         treatment_folds = json.loads(data.get('treatment_folds', '[]'))
         
         # Display options
+        show_glucose = data.get('show_glucose', True)
+        show_insulin = data.get('show_insulin', True)
+        show_homa_ir = data.get('show_homa_ir', True)
         show_fatty_acids = data.get('show_fatty_acids', False)
         show_ketones = data.get('show_ketones', False)
         show_lactate = data.get('show_lactate', False)
@@ -917,12 +921,12 @@ def run_treatment():
         for param in PARAMETER_NAMES[:17]:  # Only modifiable parameters
             try:
                 S = sensitivity_analysis(param, adiposity, p=p, fold_change=2.0)
-                if 'HOMA_IR' in S.index:
-                    sensitivities[param] = S['HOMA_IR']  # Keep sign for direction
+                if ranking_variable in S.index:
+                    sensitivities[param] = S[ranking_variable]  # Keep sign for direction
             except:
                 pass
         
-        # Rank by absolute HOMA-IR sensitivity
+        # Rank by absolute sensitivity of the ranking variable
         ranked_params = sorted(sensitivities.items(), key=lambda x: abs(x[1]), reverse=True)
         top_params = [p[0] for p in ranked_params[:10]]
         
@@ -1040,11 +1044,22 @@ def run_treatment():
         # Create individual plots
         plots = []
         
-        # Always show these
-        variables = ['G', 'I', 'HOMA_IR']
-        labels = ['Glucose (mg/dL)', 'Insulin (uU/mL)', 'HOMA-IR']
+        # Build list of variables to display based on user selection
+        variables = []
+        labels = []
         
-        # Add optional metabolites
+        if show_glucose:
+            variables.append('G')
+            labels.append('Glucose (mg/dL)')
+        
+        if show_insulin:
+            variables.append('I')
+            labels.append('Insulin (uU/mL)')
+        
+        if show_homa_ir:
+            variables.append('HOMA_IR')
+            labels.append('HOMA-IR')
+        
         if show_fatty_acids:
             variables.append('F')
             labels.append('Fatty Acids (mM)')
@@ -1106,6 +1121,7 @@ def run_treatment():
             'plots': plots,
             'data': data_csv,
             'top_perturbations': top_perturbations,
+            'ranking_variable': ranking_variable,
             'adiposity': adiposity,
             'insulin_dose': insulin_dose_u_kg_day
         })
