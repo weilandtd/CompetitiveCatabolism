@@ -574,6 +574,15 @@ def run_obesity():
         # Additional parameter perturbations (as fold changes)
         param_dict = data.get('parameters', {})
         
+        # Define color scheme for all plots
+        PLOT_COLORS = {
+            'model': '#0891b2',        # cyan-600 - main model line
+            'perturbed': '#f97316',    # orange-500 - perturbed model line
+            'mouse_data': '#64748b',   # slate-500 - BXD mouse data points
+            'male_data': '#06b6d4',    # cyan-500 - male human data points (light teal)
+            'female_data': '#fb7185'   # rose-400 - female human data points (light pink)
+        }
+        
         # Get base parameters
         p = ref_parameters()
         
@@ -724,19 +733,20 @@ def run_obesity():
         
         # Glucose plot
         def plot_glucose(ax):
-            ax.plot(x_axis, G, linewidth=2, color='#0891b2', label='Model')  # cyan-600
+            ax.plot(x_axis, G, linewidth=2, color=PLOT_COLORS['model'], label='Model')
             if G_perturbed is not None:
-                ax.plot(x_axis, G_perturbed, linewidth=2, color='#f97316', 
-                       linestyle='--', label='Perturbed')  # orange-500
+                ax.plot(x_axis, G_perturbed, linewidth=2, color=PLOT_COLORS['perturbed'], 
+                       linestyle='--', label='Perturbed')
             
             if experimental_data and show_data:
                 if species == 'mouse':
                     ax.scatter(experimental_data['fat_mass'], experimental_data['glucose'],
-                              alpha=0.3, s=20, color='#64748b', label='BXD mice')  # slate-500
+                              alpha=0.3, s=20, color=PLOT_COLORS['mouse_data'], label='BXD mice')
                 else:
+                    data_color = PLOT_COLORS['male_data'] if sex == 'male' else PLOT_COLORS['female_data']
                     ax.scatter(experimental_data['body_fat_pct'], experimental_data['glucose'],
-                              alpha=0.3, s=10, color='#06b6d4' if sex == 'male' else '#fb7185',
-                              label=f'{sex.capitalize()} (NHANES)')  # cyan-500 male, rose-400 female
+                              alpha=0.3, s=10, color=data_color,
+                              label=f'{sex.capitalize()} (NHANES)')
             
             ax.set_xlabel(x_label)
             ax.set_ylabel('Fasting glucose (mg/dL)')
@@ -755,19 +765,20 @@ def run_obesity():
         
         # Insulin plot
         def plot_insulin(ax):
-            ax.plot(x_axis, I, linewidth=2, color='#0891b2', label='Model')  # cyan-600
+            ax.plot(x_axis, I, linewidth=2, color=PLOT_COLORS['model'], label='Model')
             if I_perturbed is not None:
-                ax.plot(x_axis, I_perturbed, linewidth=2, color='#f97316', 
-                       linestyle='--', label='Perturbed')  # orange-500
+                ax.plot(x_axis, I_perturbed, linewidth=2, color=PLOT_COLORS['perturbed'], 
+                       linestyle='--', label='Perturbed')
             
             if experimental_data and show_data:
                 if species == 'mouse':
                     ax.scatter(experimental_data['fat_mass'], experimental_data['insulin'],
-                              alpha=0.3, s=20, color='#64748b', label='BXD mice')  # slate-500
+                              alpha=0.3, s=20, color=PLOT_COLORS['mouse_data'], label='BXD mice')
                 else:
+                    data_color = PLOT_COLORS['male_data'] if sex == 'male' else PLOT_COLORS['female_data']
                     ax.scatter(experimental_data['body_fat_pct'], experimental_data['insulin'],
-                              alpha=0.3, s=10, color='#06b6d4' if sex == 'male' else '#fb7185',
-                              label=f'{sex.capitalize()} (NHANES)')  # cyan-500 male, rose-400 female
+                              alpha=0.3, s=10, color=data_color,
+                              label=f'{sex.capitalize()} (NHANES)')
             
             ax.set_xlabel(x_label)
             ylabel = 'Fasting insulin (ng/mL)' if species == 'mouse' else 'Fasting insulin (uU/mL)'
@@ -787,19 +798,20 @@ def run_obesity():
         
         # HOMA-IR plot
         def plot_homa_ir(ax):
-            ax.plot(x_axis, HOMA_IR, linewidth=2, color='#0891b2', label='Model')  # cyan-600
+            ax.plot(x_axis, HOMA_IR, linewidth=2, color=PLOT_COLORS['model'], label='Model')
             if HOMA_IR_perturbed is not None:
-                ax.plot(x_axis, HOMA_IR_perturbed, linewidth=2, color='#f97316', 
-                       linestyle='--', label='Perturbed')  # orange-500
+                ax.plot(x_axis, HOMA_IR_perturbed, linewidth=2, color=PLOT_COLORS['perturbed'], 
+                       linestyle='--', label='Perturbed')
             
             if experimental_data and show_data:
                 if species == 'mouse':
                     ax.scatter(experimental_data['fat_mass'], experimental_data['homa_ir'],
-                              alpha=0.3, s=20, color='#64748b', label='BXD mice')  # slate-500
+                              alpha=0.3, s=20, color=PLOT_COLORS['mouse_data'], label='BXD mice')
                 else:
+                    data_color = PLOT_COLORS['male_data'] if sex == 'male' else PLOT_COLORS['female_data']
                     ax.scatter(experimental_data['body_fat_pct'], experimental_data['homa_ir'],
-                              alpha=0.3, s=10, color='#06b6d4' if sex == 'male' else '#fb7185',
-                              label=f'{sex.capitalize()} (NHANES)')  # cyan-500 male, rose-400 female
+                              alpha=0.3, s=10, color=data_color,
+                              label=f'{sex.capitalize()} (NHANES)')
             
             ax.set_xlabel(x_label)
             ax.set_ylabel('HOMA-IR')
