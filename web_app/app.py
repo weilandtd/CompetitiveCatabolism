@@ -862,13 +862,28 @@ def run_treatment():
         data = request.json
         
         # Get parameters
-        perturbation_param = data.get('perturbation_param', 'alpha')
-        perturbation_fold = float(data.get('perturbation_fold', 2.0))
+        adiposity = float(data.get('adiposity', 3.0))  # Default adiposity = 3
+        disease_param = data.get('disease_param', None)  # Optional disease parameter
+        disease_fold = float(data.get('disease_fold', 2.0)) if disease_param else None
         treatment_params = json.loads(data.get('treatment_params', '[]'))
         treatment_folds = json.loads(data.get('treatment_folds', '[]'))
         
+        # Display options
+        show_fatty_acids = data.get('show_fatty_acids', False)
+        show_ketones = data.get('show_ketones', False)
+        show_lactate = data.get('show_lactate', False)
+        
         # Additional parameter perturbations (as fold changes)
         param_dict = data.get('parameters', {})
+        
+        # Define color scheme for treatment plots (matching app theme)
+        TREATMENT_COLORS = {
+            'diseased': '#64748b',     # slate-500 - grey for diseased state
+            'insulin': '#8b5cf6',      # violet-500 - muted purple for insulin
+            'increase': '#f97316',     # orange-500 - orange for increased parameters (matching theme)
+            'decrease': '#0891b2',     # cyan-600 - teal for decreased parameters (matching theme)
+            'baseline': '#64748b'      # slate-500 - grey baseline
+        }
         
         # Get base parameters
         p = ref_parameters()
@@ -880,92 +895,177 @@ def run_treatment():
             values = [fold_changes[i] * p[PARAMETER_NAMES.index(keys[i])] for i in range(len(keys))]
             p = change_parameters(p, values, ix=keys)
         
-        # Create perturbed condition (diseased state)
-        p_perturbed = change_parameters(p, [perturbation_fold * p[PARAMETER_NAMES.index(perturbation_param)]], 
-                                       ix=[perturbation_param])
+        # Apply disease parameter perturbation if specified
+        if disease_param:
+            p = change_parameters(p, [disease_fold * p[PARAMETER_NAMES.index(disease_param)]], 
+                                 ix=[disease_param])
         
-        # Get baseline states
-        A = 1.0  # Reference adiposity
-        X_healthy = perturbation_steady_state(A, p=p)
-        X_diseased = perturbation_steady_state(A, p=p_perturbed)
+        # Get diseased state (adiposity + optional parameter perturbation)
+        X_diseased = perturbation_steady_state(adiposity, p=p)
         
-        # Calculate HOMA-IR for ranking
-        HOMA_IR_healthy = X_healthy[1] * X_healthy[4] * 7
-        HOMA_IR_diseased = X_diseased[1] * X_diseased[4] * 7
+        # Scale to human values (matching obesity tab)
+        G_diseased = X_diseased[1] * 85  # mg/dL
+        I_diseased = X_diseased[4] * 5.0 / I0  # uU/mL
+        HOMA_IR_diseased = (G_diseased * I_diseased) / 405
+        F_diseased = X_diseased[2] * 0.5  # mM (fatty acids)
+        K_diseased = X_diseased[3] * 0.5  # mM (ketones/3HB)
+        L_diseased = X_diseased[0] * 0.7  # mM (lactate)
         
         # Run sensitivity analysis to find top perturbations
         sensitivities = {}
         for param in PARAMETER_NAMES[:17]:  # Only modifiable parameters
             try:
-                S = sensitivity_analysis(param, A, p=p_perturbed, fold_change=2.0)
+                S = sensitivity_analysis(param, adiposity, p=p, fold_change=2.0)
                 if 'HOMA_IR' in S.index:
-                    sensitivities[param] = abs(S['HOMA_IR'])
+                    sensitivities[param] = S['HOMA_IR']  # Keep sign for direction
             except:
                 pass
         
-        # Rank by HOMA-IR sensitivity
-        ranked_params = sorted(sensitivities.items(), key=lambda x: x[1], reverse=True)
-        top_3_params = [p[0] for p in ranked_params[:3]]
+        # Rank by absolute HOMA-IR sensitivity
+        ranked_params = sorted(sensitivities.items(), key=lambda x: abs(x[1]), reverse=True)
+        top_params = [p[0] for p in ranked_params[:10]]
         
-        # If treatment params provided, use those; otherwise use top 3
+        # If treatment params not provided, use top 3
         if not treatment_params:
-            treatment_params = top_3_params
-            treatment_folds = [0.5, 0.5, 0.5]  # Default: reduce by 50%
+            treatment_params = top_params[:3]
         
         # Test treatments
         treatment_results = []
         
         # Add diseased state
+        disease_label = f'Diseased (A={adiposity}'
+        if disease_param:
+            disease_label += f', {disease_param}×{disease_fold}'
+        disease_label += ')'
+        
         treatment_results.append({
-            'treatment': 'Diseased',
-            'G': X_diseased[1] * 7,
-            'I': X_diseased[4],
-            'HOMA_IR': HOMA_IR_diseased
+            'treatment': disease_label,
+            'G': G_diseased,
+            'I': I_diseased,
+            'HOMA_IR': HOMA_IR_diseased,
+            'F': F_diseased,
+            'K': K_diseased,
+            'L': L_diseased,
+            'color': TREATMENT_COLORS['diseased'],
+            'direction': 'baseline'
         })
         
-        # Test each treatment
-        for treat_param, treat_fold in zip(treatment_params, treatment_folds):
-            p_treated = change_parameters(p_perturbed, 
-                                         [treat_fold * p_perturbed[PARAMETER_NAMES.index(treat_param)]], 
+        # Test insulin treatment (low dose insulin infusion)
+        vI_low = I0 / TAU_INS  # Low dose insulin infusion rate
+        time_clamp = np.linspace(0, 120, 200)
+        X_insulin_clamp, _ = insulin_clamp_dynamic(vI_low, time_clamp, adiposity, p=p)
+        
+        # Get steady state values (last 20% of simulation)
+        cutoff_time = 120 * 0.8
+        X_insulin_ss = X_insulin_clamp[X_insulin_clamp['time'] > cutoff_time].mean()
+        
+        # Scale to human values (matching obesity tab scaling)
+        G_insulin = X_insulin_ss['G'] * 85  # mg/dL (human scaling)
+        I_insulin = X_insulin_ss['I'] * 5.0 / I0  # uU/mL (human scaling)
+        HOMA_IR_insulin = (G_insulin * I_insulin) / 405
+        F_insulin = X_insulin_ss['F'] * 0.5  # mM
+        K_insulin = X_insulin_ss['K'] * 0.5  # mM
+        L_insulin = X_insulin_ss['L'] * 0.7  # mM
+        
+        # Add insulin treatment result
+        treatment_results.append({
+            'treatment': 'Insulin',
+            'G': G_insulin,
+            'I': I_insulin,
+            'HOMA_IR': HOMA_IR_insulin,
+            'F': F_insulin,
+            'K': K_insulin,
+            'L': L_insulin,
+            'fold_change': None,
+            'sensitivity': None,
+            'direction': 'insulin',
+            'color': TREATMENT_COLORS['insulin']
+        })
+        
+        # Test each treatment with 2-fold perturbation in HOMA-IR reducing direction
+        for treat_param in treatment_params:
+            # Get sensitivity direction
+            sensitivity = sensitivities.get(treat_param, 0)
+            
+            # Determine fold change: if sensitivity is positive (increases HOMA-IR), 
+            # we want to decrease the parameter (0.5x), and vice versa
+            if sensitivity > 0:
+                treat_fold = 0.5  # Decrease parameter
+                direction = 'decrease'
+                color = TREATMENT_COLORS['decrease']
+            else:
+                treat_fold = 2.0  # Increase parameter
+                direction = 'increase'
+                color = TREATMENT_COLORS['increase']
+            
+            p_treated = change_parameters(p, 
+                                         [treat_fold * p[PARAMETER_NAMES.index(treat_param)]], 
                                          ix=[treat_param])
-            X_treated = perturbation_steady_state(A, p=p_treated)
+            X_treated = perturbation_steady_state(adiposity, p=p_treated)
+            
+            # Scale to human values
+            G_treated = X_treated[1] * 85  # mg/dL
+            I_treated = X_treated[4] * 5.0 / I0  # uU/mL
+            HOMA_IR_treated = (G_treated * I_treated) / 405
+            F_treated = X_treated[2] * 0.5  # mM
+            K_treated = X_treated[3] * 0.5  # mM
+            L_treated = X_treated[0] * 0.7  # mM
             
             treatment_results.append({
                 'treatment': treat_param,
-                'G': X_treated[1] * 7,
-                'I': X_treated[4],
-                'HOMA_IR': X_treated[1] * X_treated[4] * 7
+                'G': G_treated,
+                'I': I_treated,
+                'HOMA_IR': HOMA_IR_treated,
+                'F': F_treated,
+                'K': K_treated,
+                'L': L_treated,
+                'fold_change': treat_fold,
+                'sensitivity': float(sensitivity),
+                'direction': direction,
+                'color': color
             })
-        
-        # Add insulin treatment (increase I_max)
-        p_insulin = change_parameters(p_perturbed, 
-                                     [1.5 * p_perturbed[PARAMETER_NAMES.index('I_max')]], 
-                                     ix=['I_max'])
-        X_insulin = perturbation_steady_state(A, p=p_insulin)
-        treatment_results.append({
-            'treatment': 'Insulin',
-            'G': X_insulin[1] * 7,
-            'I': X_insulin[4],
-            'HOMA_IR': X_insulin[1] * X_insulin[4] * 7
-        })
         
         df_treatment = pd.DataFrame(treatment_results)
         
         # Create individual plots
         plots = []
+        
+        # Always show these
         variables = ['G', 'I', 'HOMA_IR']
-        labels = ['Glucose (mM)', 'Insulin (a.u.)', 'HOMA-IR']
-        colors = ['#0891b2'] * len(treatment_results)  # cyan-600 for treatments
-        colors[0] = '#f97316'  # orange-500 for diseased state
+        labels = ['Glucose (mg/dL)', 'Insulin (uU/mL)', 'HOMA-IR']
+        
+        # Add optional metabolites
+        if show_fatty_acids:
+            variables.append('F')
+            labels.append('Fatty Acids (mM)')
+        
+        if show_ketones:
+            variables.append('K')
+            labels.append('Ketones (mM)')
+        
+        if show_lactate:
+            variables.append('L')
+            labels.append('Lactate (mM)')
         
         def plot_treatment_bar(ax, var, label):
+            colors = [r['color'] for r in treatment_results]
             ax.bar(range(len(df_treatment)), df_treatment[var], color=colors)
-            ax.axhline(y=treatment_results[0][var], color='#f97316', 
-                         linestyle='--', alpha=0.5, label='Diseased')  # orange-500
+            ax.axhline(y=treatment_results[0][var], color=TREATMENT_COLORS['diseased'], 
+                         linestyle='--', alpha=0.5, label='Diseased')
             ax.set_xticks(range(len(df_treatment)))
             ax.set_xticklabels(df_treatment['treatment'], rotation=45, ha='right')
             ax.set_ylabel(label)
             ax.set_title(f'{label} - Treatment Effects')
+            
+            # Add legend for colors
+            from matplotlib.patches import Patch
+            legend_elements = [
+                Patch(facecolor=TREATMENT_COLORS['diseased'], label='Diseased'),
+                Patch(facecolor=TREATMENT_COLORS['insulin'], label='Insulin'),
+                Patch(facecolor=TREATMENT_COLORS['increase'], label='Increased 2×'),
+                Patch(facecolor=TREATMENT_COLORS['decrease'], label='Decreased 0.5×')
+            ]
+            ax.legend(handles=legend_elements, loc='upper right')
             sns.despine(ax=ax)
         
         for var, label in zip(variables, labels):
@@ -979,9 +1079,28 @@ def run_treatment():
         # Prepare data
         data_csv = df_treatment.to_csv(index=False)
         
-        # Add top perturbations info
-        top_perturbations = [{'parameter': p, 'sensitivity': float(s)} 
-                           for p, s in ranked_params[:10]]
+        # Add top perturbations info with direction
+        top_perturbations = [
+            {
+                'parameter': p, 
+                'sensitivity': float(s),
+                'abs_sensitivity': float(abs(s)),
+                'direction': 'increase' if s < 0 else 'decrease'  # Opposite of sensitivity
+            } 
+            for p, s in ranked_params[:10]
+        ]
+        
+        return jsonify({
+            'success': True,
+            'plots': plots,
+            'data': data_csv,
+            'top_perturbations': top_perturbations,
+            'adiposity': adiposity
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 400
         
         return jsonify({
             'success': True,

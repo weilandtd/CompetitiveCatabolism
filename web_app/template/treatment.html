@@ -18,21 +18,28 @@
             <div class="controls-panel">
                 <h2>Simulation Parameters</h2>
                 
-                <h3>Disease State (Perturbation)</h3>
+                <h3>Disease State</h3>
                 
                 <div class="form-group">
-                    <label for="perturbation_param">Disease Parameter</label>
-                    <select id="perturbation_param">
+                    <label for="adiposity">Adiposity (fold change)</label>
+                    <input type="number" id="adiposity" value="3.0" min="1.0" max="10" step="0.5">
+                    <small>Relative to healthy lean state (1.0 = healthy, 3.0 = obese)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="disease_param">Additional Disease Parameter (Optional)</label>
+                    <select id="disease_param">
+                        <option value="">None</option>
                         {% for param in parameter_names %}
                         <option value="{{ param }}">{{ parameter_descriptions.get(param, param) }} ({{ parameter_latex.get(param, param) }})</option>
                         {% endfor %}
                     </select>
                 </div>
                 
-                <div class="form-group">
-                    <label for="perturbation_fold">Disease Severity (fold change)</label>
-                    <input type="number" id="perturbation_fold" value="2.0" min="0.1" max="5" step="0.1">
-                    <small>Creates a "diseased" baseline state</small>
+                <div class="form-group" id="disease-fold-group" style="display: none;">
+                    <label for="disease_fold">Disease Parameter Fold Change</label>
+                    <input type="number" id="disease_fold" value="2.0" min="0.1" max="5" step="0.1">
+                    <small>Fold change for the selected disease parameter</small>
                 </div>
                 
                 <h3>Treatment Options</h3>
@@ -41,6 +48,29 @@
                     <label>
                         <input type="checkbox" id="auto_treatment" checked>
                         Auto-select Top 3 Treatments (by sensitivity analysis)
+                    </label>
+                </div>
+                
+                <h3>Display Options</h3>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="show_fatty_acids">
+                        Show Fatty Acids
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="show_ketones">
+                        Show Ketones (3-Hydroxybutyrate)
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="show_lactate">
+                        Show Lactate
                     </label>
                 </div>
                 
@@ -82,7 +112,8 @@
                                 <tr>
                                     <th>Rank</th>
                                     <th>Parameter</th>
-                                    <th>Sensitivity</th>
+                                    <th>Treatment Direction</th>
+                                    <th>|Sensitivity|</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -96,6 +127,17 @@
     
     <script>
         let simulationData = null;
+        
+        // Show/hide disease fold change field when disease parameter is selected
+        document.getElementById('disease_param').addEventListener('change', function() {
+            const diseaseParamValue = this.value;
+            const diseaseFoldGroup = document.getElementById('disease-fold-group');
+            if (diseaseParamValue) {
+                diseaseFoldGroup.style.display = 'block';
+            } else {
+                diseaseFoldGroup.style.display = 'none';
+            }
+        });
         
         // Toggle manual treatment inputs
         document.getElementById('auto_treatment').addEventListener('change', function() {
@@ -120,21 +162,23 @@
         });
         
         async function runSimulation() {
-            const perturbationParam = document.getElementById('perturbation_param').value;
-            const perturbationFold = document.getElementById('perturbation_fold').value;
+            const adiposity = document.getElementById('adiposity').value;
+            const diseaseParam = document.getElementById('disease_param').value;
+            const diseaseFold = document.getElementById('disease_fold').value;
             const autoTreatment = document.getElementById('auto_treatment').checked;
+            const showFattyAcids = document.getElementById('show_fatty_acids').checked;
+            const showKetones = document.getElementById('show_ketones').checked;
+            const showLactate = document.getElementById('show_lactate').checked;
             
             let treatmentParams = [];
             let treatmentFolds = [];
             
             if (!autoTreatment) {
-                const paramsText = document.getElementById('treatment_params').value;
-                const foldsText = document.getElementById('treatment_folds').value;
+                const paramsStr = document.getElementById('treatment_params').value;
+                const foldsStr = document.getElementById('treatment_folds').value;
                 
-                if (paramsText && foldsText) {
-                    treatmentParams = paramsText.split(',').map(s => s.trim());
-                    treatmentFolds = foldsText.split(',').map(s => parseFloat(s.trim()));
-                }
+                if (paramsStr) treatmentParams = paramsStr.split(',').map(s => s.trim());
+                if (foldsStr) treatmentFolds = foldsStr.split(',').map(s => parseFloat(s.trim()));
             }
             
             const additionalParams = {};
@@ -145,11 +189,15 @@
             });
             
             const data = {
-                perturbation_param: perturbationParam,
-                perturbation_fold: parseFloat(perturbationFold),
+                adiposity: parseFloat(adiposity),
+                disease_param: diseaseParam || null,
+                disease_fold: diseaseParam ? parseFloat(diseaseFold) : null,
                 treatment_params: JSON.stringify(treatmentParams),
                 treatment_folds: JSON.stringify(treatmentFolds),
-                parameters: additionalParams
+                parameters: additionalParams,
+                show_fatty_acids: showFattyAcids,
+                show_ketones: showKetones,
+                show_lactate: showLactate
             };
             
             document.getElementById('loading').style.display = 'block';
@@ -184,7 +232,7 @@
                     
                     simulationData = result.data;
                     
-                    // Display sensitivity table
+                    // Display sensitivity table with direction information
                     if (result.top_perturbations) {
                         const tbody = document.querySelector('#sensitivity-data tbody');
                         tbody.innerHTML = '';
@@ -192,7 +240,14 @@
                             const row = tbody.insertRow();
                             row.insertCell(0).textContent = index + 1;
                             row.insertCell(1).textContent = item.parameter;
-                            row.insertCell(2).textContent = item.sensitivity.toFixed(3);
+                            
+                            // Show direction with arrow
+                            const directionCell = row.insertCell(2);
+                            const arrow = item.direction === 'increase' ? '↑' : '↓';
+                            directionCell.textContent = `${arrow} ${item.direction}`;
+                            directionCell.style.color = item.direction === 'increase' ? '#10b981' : '#3b82f6';
+                            
+                            row.insertCell(3).textContent = item.abs_sensitivity.toFixed(3);
                         });
                     }
                 } else {
