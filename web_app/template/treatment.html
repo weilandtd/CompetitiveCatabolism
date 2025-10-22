@@ -52,6 +52,19 @@
                 </div>
                 
                 <div class="form-group">
+                    <label for="ranking_variable">Ranking Variable (for sensitivity analysis)</label>
+                    <select id="ranking_variable">
+                        <option value="HOMA_IR">HOMA-IR</option>
+                        <option value="G">Glucose</option>
+                        <option value="I">Insulin</option>
+                        <option value="F">Fatty Acids</option>
+                        <option value="K">Ketones</option>
+                        <option value="L">Lactate</option>
+                    </select>
+                    <small>Variable used to rank parameters for treatment discovery</small>
+                </div>
+                
+                <div class="form-group">
                     <label>
                         <input type="checkbox" id="auto_treatment" checked>
                         Auto-select Top 3 Treatments (by sensitivity analysis)
@@ -59,6 +72,27 @@
                 </div>
                 
                 <h3>Display Options</h3>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="show_glucose" checked>
+                        Show Glucose
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="show_insulin" checked>
+                        Show Insulin
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="show_homa_ir" checked>
+                        Show HOMA-IR
+                    </label>
+                </div>
                 
                 <div class="form-group">
                     <label>
@@ -179,7 +213,11 @@
             const diseaseParam = document.getElementById('disease_param').value;
             const diseaseFold = document.getElementById('disease_fold').value;
             const insulinDose = document.getElementById('insulin_dose').value;
+            const rankingVariable = document.getElementById('ranking_variable').value;
             const autoTreatment = document.getElementById('auto_treatment').checked;
+            const showGlucose = document.getElementById('show_glucose').checked;
+            const showInsulin = document.getElementById('show_insulin').checked;
+            const showHomaIr = document.getElementById('show_homa_ir').checked;
             const showFattyAcids = document.getElementById('show_fatty_acids').checked;
             const showKetones = document.getElementById('show_ketones').checked;
             const showLactate = document.getElementById('show_lactate').checked;
@@ -207,9 +245,13 @@
                 disease_param: diseaseParam || null,
                 disease_fold: diseaseParam ? parseFloat(diseaseFold) : null,
                 insulin_dose: parseFloat(insulinDose),
+                ranking_variable: rankingVariable,
                 treatment_params: JSON.stringify(treatmentParams),
                 treatment_folds: JSON.stringify(treatmentFolds),
                 parameters: additionalParams,
+                show_glucose: showGlucose,
+                show_insulin: showInsulin,
+                show_homa_ir: showHomaIr,
                 show_fatty_acids: showFattyAcids,
                 show_ketones: showKetones,
                 show_lactate: showLactate
@@ -246,6 +288,11 @@
                     });
                     
                     simulationData = result.data;
+                    
+                    // Update table title with ranking variable
+                    const rankingVarName = result.ranking_variable || 'HOMA-IR';
+                    document.querySelector('#sensitivity-table h3').textContent = 
+                        `Top 10 Therapeutic Targets (by ${rankingVarName} sensitivity)`;
                     
                     // Display sensitivity table with direction information
                     if (result.top_perturbations) {
