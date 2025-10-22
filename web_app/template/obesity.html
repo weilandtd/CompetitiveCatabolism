@@ -119,6 +119,8 @@
             <div class="controls-panel">
                 <h2>Simulation Parameters</h2>
                 
+                <button id="run-btn" class="btn-primary" style="margin-bottom: 20px; width: 100%;">Run Simulation</button>
+                
                 <div class="toggle-container">
                     <div class="toggle-group">
                         <span style="font-weight: 500; color: #1e293b; font-size: 14px; user-select: none;">Species</span>
@@ -171,11 +173,6 @@
                 <h3>Additional Parameter Modifications (Optional)</h3>
                 <div id="additional-params"></div>
                 <button id="add-param-btn" class="btn-secondary">+ Add Parameter</button>
-                
-                <button id="run-btn" class="btn-primary">Run Simulation</button>
-                <div id="loading" class="loading" style="display: none;">
-                    Running simulation...
-                </div>
             </div>
             
             <div class="results-panel">
@@ -239,9 +236,14 @@
                 parameters: additionalParams
             };
             
-            document.getElementById('loading').style.display = 'block';
+            // Update button state
+            const runBtn = document.getElementById('run-btn');
+            const originalText = runBtn.textContent;
+            runBtn.textContent = 'Running Simulation...';
+            runBtn.disabled = true;
+            runBtn.style.filter = 'blur(1px)';
+            runBtn.style.opacity = '0.6';
             document.getElementById('error-msg').style.display = 'none';
-            document.getElementById('run-btn').disabled = true;
             
             try {
                 const response = await fetch('/api/run_obesity', {
@@ -278,8 +280,11 @@
                 document.getElementById('error-msg').textContent = 'Error: ' + error.message;
                 document.getElementById('error-msg').style.display = 'block';
             } finally {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('run-btn').disabled = false;
+                // Reset button state
+                runBtn.textContent = originalText;
+                runBtn.disabled = false;
+                runBtn.style.filter = 'none';
+                runBtn.style.opacity = '1';
             }
         }
         

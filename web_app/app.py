@@ -21,6 +21,13 @@ from multi_nutrient_model import (
     TAU_INS
 )
 
+# Exclude infusion rate parameters from perturbation lists
+# These are 0 by default, so fold changes don't work
+INFUSION_PARAMS = ['R_insulin', 'R_lactate', 'R_glucose', 'R_fatty_acids', 'R_3HB']
+PARAMETER_NAMES_NO_INFUSION = [p for p in PARAMETER_NAMES if p not in INFUSION_PARAMS]
+PARAMETER_DESCRIPTIONS_NO_INFUSION = {k: v for k, v in PARAMETER_DESCRIPTIONS.items() if k not in INFUSION_PARAMS}
+PARAMETER_LATEX_NO_INFUSION = {k: v for k, v in PARAMETER_LATEX.items() if k not in INFUSION_PARAMS}
+
 # Flux scaling based on total ATP production rate
 # ATP per O2 (3 per O)
 PO2 = 5.0
@@ -102,41 +109,41 @@ def home():
 def dynamic_response():
     """Page for Type 1 Diabetes-like dynamic response simulation"""
     return render_template('dynamic_response.html', 
-                         parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
-                         parameter_latex=PARAMETER_LATEX)
+                         parameter_names=PARAMETER_NAMES_NO_INFUSION,
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS_NO_INFUSION,
+                         parameter_latex=PARAMETER_LATEX_NO_INFUSION)
 
 @app.route('/insulin_clamp')
 def insulin_clamp():
     """Page for hyperinsulinemic-euglycemic clamp simulation"""
     return render_template('insulin_clamp.html',
-                         parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
-                         parameter_latex=PARAMETER_LATEX)
+                         parameter_names=PARAMETER_NAMES_NO_INFUSION,
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS_NO_INFUSION,
+                         parameter_latex=PARAMETER_LATEX_NO_INFUSION)
 
 @app.route('/tolerance_tests')
 def tolerance_tests():
     """Page for GTT/ITT simulation with receptor knockouts"""
     return render_template('tolerance_tests.html',
-                         parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
-                         parameter_latex=PARAMETER_LATEX)
+                         parameter_names=PARAMETER_NAMES_NO_INFUSION,
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS_NO_INFUSION,
+                         parameter_latex=PARAMETER_LATEX_NO_INFUSION)
 
 @app.route('/obesity')
 def obesity():
     """Page for obesity simulation"""
     return render_template('obesity.html',
-                         parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
-                         parameter_latex=PARAMETER_LATEX)
+                         parameter_names=PARAMETER_NAMES_NO_INFUSION,
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS_NO_INFUSION,
+                         parameter_latex=PARAMETER_LATEX_NO_INFUSION)
 
 @app.route('/treatment')
 def treatment():
     """Page for treatment simulation"""
     return render_template('treatment.html',
-                         parameter_names=PARAMETER_NAMES,
-                         parameter_descriptions=PARAMETER_DESCRIPTIONS,
-                         parameter_latex=PARAMETER_LATEX)
+                         parameter_names=PARAMETER_NAMES_NO_INFUSION,
+                         parameter_descriptions=PARAMETER_DESCRIPTIONS_NO_INFUSION,
+                         parameter_latex=PARAMETER_LATEX_NO_INFUSION)
 
 @app.route('/api/run_dynamic', methods=['POST'])
 def run_dynamic():
