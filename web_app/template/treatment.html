@@ -45,6 +45,13 @@
                 <h3>Treatment Options</h3>
                 
                 <div class="form-group">
+                    <label for="insulin_dose">Insulin Dose (U/kg/day, long-acting)</label>
+                    <input type="range" id="insulin_dose" min="0" max="0.5" value="0.2" step="0.05">
+                    <output id="insulin_dose_value">0.2</output> U/kg/day
+                    <small>Simulated dose of long-acting insulin (e.g., glargine, detemir). Range: 0-0.5 U/kg/day represents physiological to high therapeutic doses.</small>
+                </div>
+                
+                <div class="form-group">
                     <label>
                         <input type="checkbox" id="auto_treatment" checked>
                         Auto-select Top 3 Treatments (by sensitivity analysis)
@@ -128,6 +135,11 @@
     <script>
         let simulationData = null;
         
+        // Update insulin dose display
+        document.getElementById('insulin_dose').addEventListener('input', function() {
+            document.getElementById('insulin_dose_value').textContent = this.value;
+        });
+        
         // Show/hide disease fold change field when disease parameter is selected
         document.getElementById('disease_param').addEventListener('change', function() {
             const diseaseParamValue = this.value;
@@ -165,6 +177,7 @@
             const adiposity = document.getElementById('adiposity').value;
             const diseaseParam = document.getElementById('disease_param').value;
             const diseaseFold = document.getElementById('disease_fold').value;
+            const insulinDose = document.getElementById('insulin_dose').value;
             const autoTreatment = document.getElementById('auto_treatment').checked;
             const showFattyAcids = document.getElementById('show_fatty_acids').checked;
             const showKetones = document.getElementById('show_ketones').checked;
@@ -192,6 +205,7 @@
                 adiposity: parseFloat(adiposity),
                 disease_param: diseaseParam || null,
                 disease_fold: diseaseParam ? parseFloat(diseaseFold) : null,
+                insulin_dose: parseFloat(insulinDose),
                 treatment_params: JSON.stringify(treatmentParams),
                 treatment_folds: JSON.stringify(treatmentFolds),
                 parameters: additionalParams,

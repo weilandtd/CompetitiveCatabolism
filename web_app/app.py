@@ -865,6 +865,7 @@ def run_treatment():
         adiposity = float(data.get('adiposity', 3.0))  # Default adiposity = 3
         disease_param = data.get('disease_param', None)  # Optional disease parameter
         disease_fold = float(data.get('disease_fold', 2.0)) if disease_param else None
+        insulin_dose_u_kg_day = float(data.get('insulin_dose', 0.2))  # Insulin dose in U/kg/day (default 0.2)
         treatment_params = json.loads(data.get('treatment_params', '[]'))
         treatment_folds = json.loads(data.get('treatment_folds', '[]'))
         
@@ -950,26 +951,35 @@ def run_treatment():
             'direction': 'baseline'
         })
         
-        # Test insulin treatment (low dose insulin infusion)
-        vI_low = I0 / TAU_INS  # Low dose insulin infusion rate
-        time_clamp = np.linspace(0, 120, 200)
-        X_insulin_clamp, _ = insulin_clamp_dynamic(vI_low, time_clamp, adiposity, p=p)
+        # Test insulin treatment with user-specified dose
+        # Convert insulin dose from U/kg/day to model units (R_insulin parameter)
+        # Based on sensitivity_analysis.ipynb scaling:
+        # Model: I_dose = I0/TAU_INS (base insulin production rate)
+        # Scaling factor: 1.25 mU/min/kg * 60 min/hr * 24 hr/day * 0.081 (mouse-to-human) = U/kg/day
         
-        # Get steady state values (last 20% of simulation)
-        cutoff_time = 120 * 0.8
-        X_insulin_ss = X_insulin_clamp[X_insulin_clamp['time'] > cutoff_time].mean()
+        scaling_model_to_U_kg_day = 1.25 / 1000 * 60 * 24 * 0.081  # Model units to U/kg/day
+        
+        I_dose = I0 / TAU_INS  # Base insulin dose in model units
+        
+        # Convert user's U/kg/day to model units (R_insulin infusion rate)
+        # Formula from notebook: display_value = (C/I_dose) * scaling
+        # Reverse: C = display_value * I_dose / scaling
+        insulin_infusion_rate = (insulin_dose_u_kg_day / scaling_model_to_U_kg_day) * I_dose
+        
+        # Compute steady state with insulin infusion
+        X_insulin = perturbation_steady_state(adiposity, p=p, R_insulin=insulin_infusion_rate)
         
         # Scale to human values (matching obesity tab scaling)
-        G_insulin = X_insulin_ss['G'] * 85  # mg/dL (human scaling)
-        I_insulin = X_insulin_ss['I'] * 5.0 / I0  # uU/mL (human scaling)
+        G_insulin = X_insulin[1] * 85  # mg/dL (human scaling)
+        I_insulin = X_insulin[4] * 5.0 / I0  # uU/mL (human scaling)
         HOMA_IR_insulin = (G_insulin * I_insulin) / 405
-        F_insulin = X_insulin_ss['F'] * 0.5  # mM
-        K_insulin = X_insulin_ss['K'] * 0.5  # mM
-        L_insulin = X_insulin_ss['L'] * 0.7  # mM
+        F_insulin = X_insulin[2] * 0.5  # mM
+        K_insulin = X_insulin[3] * 0.5  # mM
+        L_insulin = X_insulin[0] * 0.7  # mM
         
         # Add insulin treatment result
         treatment_results.append({
-            'treatment': 'Insulin',
+            'treatment': f'Insulin ({insulin_dose_u_kg_day:.2f} U/kg/day)',
             'G': G_insulin,
             'I': I_insulin,
             'HOMA_IR': HOMA_IR_insulin,
@@ -1095,7 +1105,8 @@ def run_treatment():
             'plots': plots,
             'data': data_csv,
             'top_perturbations': top_perturbations,
-            'adiposity': adiposity
+            'adiposity': adiposity,
+            'insulin_dose': insulin_dose_u_kg_day
         })
         
     except Exception as e:

@@ -151,6 +151,12 @@ header p {
     font-weight: 500;
 }
 
+.controls-panel h2 + h3 {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
+}
+
 /* Form Elements */
 .form-group {
     margin-bottom: 20px;
