@@ -895,15 +895,22 @@ def run_obesity():
                     )
                     df_nhanes['HOMA-IR'] = (df_nhanes['Insulin (uU/mL)'] * df_nhanes['Glucose (mg/dL)']) / 405
                     
-                    # Filter by sex
+                    # Filter by sex and compute deciles as in notebook
                     sex_code = 1 if sex == 'male' else 2
-                    df_sex = df_nhanes[df_nhanes['Gender'] == sex_code]
+                    df_sex = df_nhanes[df_nhanes['Gender'] == sex_code].copy()
                     
+                    # Compute deciles (10 quantiles) of body fat percentage
+                    df_sex['body_fat_percentage_decile'] = pd.qcut(
+                        df_sex['body_fat_percentage'], q=10, labels=False, duplicates='drop'
+                    )
+                    
+                    # Compute the median of body fat percentage for each decile (for binning)
+                    bin_median = df_sex.groupby('body_fat_percentage_decile')['body_fat_percentage'].median()
+                    df_sex['body_fat_percentage_bin'] = df_sex['body_fat_percentage_decile'].map(bin_median)
+                    
+                    # Store the dataframe for seaborn plotting
                     experimental_data = {
-                        'body_fat_pct': df_sex['body_fat_percentage'].values,
-                        'glucose': df_sex['Glucose (mg/dL)'].values,
-                        'insulin': df_sex['Insulin (uU/mL)'].values,
-                        'homa_ir': df_sex['HOMA-IR'].values
+                        'df': df_sex
                     }
         
         # Create plots
@@ -921,10 +928,18 @@ def run_obesity():
                     ax.scatter(experimental_data['fat_mass'], experimental_data['glucose'],
                               alpha=0.3, s=20, color=PLOT_COLORS['mouse_data'], label='BXD mice')
                 else:
+                    # Use seaborn lineplot with shaded area (as in notebook)
                     data_color = PLOT_COLORS['male_data'] if sex == 'male' else PLOT_COLORS['female_data']
-                    ax.scatter(experimental_data['body_fat_pct'], experimental_data['glucose'],
-                              alpha=0.3, s=10, color=data_color,
-                              label=f'{sex.capitalize()} (NHANES)')
+                    sns.lineplot(data=experimental_data['df'], 
+                                x='body_fat_percentage_bin',
+                                y='Glucose (mg/dL)',
+                                marker='o',
+                                color=data_color,
+                                errorbar=('pi', 50),  # 50th percentile (median) with IQR shading
+                                estimator='median',
+                                linewidth=1.5,
+                                ax=ax,
+                                label=f'{sex.capitalize()} (NHANES)')
             
             ax.set_xlabel(x_label)
             ax.set_ylabel('Fasting glucose (mg/dL)')
@@ -953,10 +968,18 @@ def run_obesity():
                     ax.scatter(experimental_data['fat_mass'], experimental_data['insulin'],
                               alpha=0.3, s=20, color=PLOT_COLORS['mouse_data'], label='BXD mice')
                 else:
+                    # Use seaborn lineplot with shaded area (as in notebook)
                     data_color = PLOT_COLORS['male_data'] if sex == 'male' else PLOT_COLORS['female_data']
-                    ax.scatter(experimental_data['body_fat_pct'], experimental_data['insulin'],
-                              alpha=0.3, s=10, color=data_color,
-                              label=f'{sex.capitalize()} (NHANES)')
+                    sns.lineplot(data=experimental_data['df'], 
+                                x='body_fat_percentage_bin',
+                                y='Insulin (uU/mL)',
+                                marker='o',
+                                color=data_color,
+                                errorbar=('pi', 50),  # 50th percentile (median) with IQR shading
+                                estimator='median',
+                                linewidth=1.5,
+                                ax=ax,
+                                label=f'{sex.capitalize()} (NHANES)')
             
             ax.set_xlabel(x_label)
             ylabel = 'Fasting insulin (ng/mL)' if species == 'mouse' else 'Fasting insulin (uU/mL)'
@@ -986,15 +1009,23 @@ def run_obesity():
                     ax.scatter(experimental_data['fat_mass'], experimental_data['homa_ir'],
                               alpha=0.3, s=20, color=PLOT_COLORS['mouse_data'], label='BXD mice')
                 else:
+                    # Use seaborn lineplot with shaded area (as in notebook)
                     data_color = PLOT_COLORS['male_data'] if sex == 'male' else PLOT_COLORS['female_data']
-                    ax.scatter(experimental_data['body_fat_pct'], experimental_data['homa_ir'],
-                              alpha=0.3, s=10, color=data_color,
-                              label=f'{sex.capitalize()} (NHANES)')
+                    sns.lineplot(data=experimental_data['df'], 
+                                x='body_fat_percentage_bin',
+                                y='HOMA-IR',
+                                marker='o',
+                                color=data_color,
+                                errorbar=('pi', 50),  # 50th percentile (median) with IQR shading
+                                estimator='median',
+                                linewidth=1.5,
+                                ax=ax,
+                                label=f'{sex.capitalize()} (NHANES)')
             
             ax.set_xlabel(x_label)
             ax.set_ylabel('HOMA-IR')
             ax.set_title('HOMA-IR vs Adiposity', pad=30)
-            if HOMA_IR_perturbed is not None:
+            if show_data or HOMA_IR_perturbed is not None:
                 ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=2, frameon=False)
             ax.set_ylim(bottom=0)
             sns.despine(ax=ax)

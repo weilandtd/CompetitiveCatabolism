@@ -125,7 +125,7 @@
                     <div class="toggle-group">
                         <span style="font-weight: 500; color: #1e293b; font-size: 14px; user-select: none;">Species</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="species-toggle">
+                            <input type="checkbox" id="species-toggle" checked>
                             <div class="toggle-pill">
                                 <span class="toggle-label-left">Mouse</span>
                                 <span class="toggle-label-right">Human</span>
@@ -184,8 +184,9 @@
                 <div id="plot-container" style="display: none;">
                     <div id="plots-grid" class="plots-grid"></div>
                     <p class="info-text" id="data-note">
-                        <strong>Note:</strong> Simulation results (solid black lines) show model predictions.
-                        When data overlay is enabled, mouse data from BXD strains or human NHANES data (scattered points) 
+                        <strong>Note:</strong> Simulation results (solid lines) show model predictions.
+                        When data overlay is enabled, mouse data from BXD strains (scatter points) or human NHANES data 
+                        (line with shaded area showing median and interquartile range by deciles of body fat percentage) 
                         are shown for comparison. Dashed orange lines show perturbed conditions.
                     </p>
                     <button id="download-btn" class="btn-secondary" style="margin-top: 20px;">Download Data (CSV)</button>
