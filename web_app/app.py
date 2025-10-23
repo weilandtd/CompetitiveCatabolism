@@ -1039,9 +1039,24 @@ def run_obesity():
         
         # Check for warnings
         warnings = []
-        warnings.extend(check_simulation_warnings(df_results[['glucose', 'insulin', 'homa_ir']].rename(columns={'glucose': 'G', 'insulin': 'I'})))
+        # Create a temporary dataframe with just the baseline values for warning checks
+        warnings_df = pd.DataFrame({
+            'adiposity': x_axis,
+            'G': G,
+            'I': I,
+            'HOMA_IR': HOMA_IR
+        })
+        warnings.extend(check_simulation_warnings(warnings_df[['adiposity', 'G', 'I', 'HOMA_IR']]))
+        
         if G_perturbed is not None:
-            warnings.extend(check_simulation_warnings(pd.DataFrame({'G': G_perturbed, 'I': I_perturbed})))
+            warnings_df_perturbed = pd.DataFrame({
+                'adiposity': x_axis,
+                'G': G_perturbed,
+                'I': I_perturbed,
+                'HOMA_IR': HOMA_IR_perturbed
+            })
+            warnings.extend(check_simulation_warnings(warnings_df_perturbed[['adiposity', 'G', 'I', 'HOMA_IR']]))
+        
         warnings = list(set(warnings))
         
         return jsonify({
@@ -1050,6 +1065,7 @@ def run_obesity():
             'data': data_csv,
             'warnings': warnings
         })
+
         
     except Exception as e:
         import traceback
