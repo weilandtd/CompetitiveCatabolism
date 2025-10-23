@@ -157,6 +157,21 @@ def create_individual_plot(plot_func, **kwargs):
 def home():
     return render_template('index.html')
 
+@app.route('/about')
+def about():
+    """About page with project information"""
+    return render_template('about.html')
+
+@app.route('/privacy')
+def privacy():
+    """Privacy policy page"""
+    return render_template('privacy.html')
+
+@app.route('/terms')
+def terms():
+    """Terms of service page"""
+    return render_template('terms.html')
+
 @app.route('/dynamic_response')
 def dynamic_response():
     """Page for Type 1 Diabetes-like dynamic response simulation"""
