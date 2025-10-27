@@ -4,20 +4,6 @@ An interactive web application for simulating the multi nutrient model.
 
 ## Quick Start
 
-### From Project Root:
-```bash
-# Copy configuration template
-cp web_app/.env.example web_app/.env
-
-# Launch the app (auto-scales workers based on system resources)
-./launch.sh
-
-# Or specify mode
-./launch.sh development
-./launch.sh production
-```
-
-### From web_app Directory:
 ```bash
 cd web_app
 

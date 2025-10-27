@@ -9,8 +9,7 @@ Daniel R. Weilandt, Won Dong Lee, Michael R. MacArthur, Lingfan Liang, Corey Hol
 
 - `multi_nutrient_model/` — Mechanistic multi-nutrient metabolic model and analyses for insulin action, nutrient competition, and metabolic phenotypes. Includes simulation functions and Jupyter notebooks for reproducing study figures and experiments.
 - `detailed_model/` — Detailed kinetic and thermodynamic modeling of mitochondrial metabolism and fuel competition. Contains model construction, parameter sampling, fuel competition, and robustness analysis notebooks and scripts.
-- `web_app/` — Web application code (acces under ).
+- `web_app/` — Interactive web application (access at [compcat.princeton.edu](https://compcat.princeton.edu))
 - Other files and folders — Data, outputs, logs, and configuration files for running and analyzing models.
-
+`
 Each main folder contains its own README with detailed instructions for installation, usage, and reproducing results. Please refer to those READMEs for step-by-step guidance.
-
