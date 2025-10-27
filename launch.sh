@@ -116,16 +116,16 @@ print_message "Mode: ${MODE}"
 print_message "Host: ${HOST}"
 print_message "Port: ${PORT}"
 
+# Check if auto-scaling is enabled
+AUTO_SCALE="${AUTO_SCALE:-true}"
+
 case $MODE in
     development|dev)
         print_message "Starting development server..."
         print_message "Access at: http://localhost:${PORT}"
         print_message "Press Ctrl+C to stop"
         print_message "==================================================="
-        cd web_app
-        export FLASK_APP=app.py
-        export FLASK_ENV=development
-        python3 -m flask run --host="${HOST}" --port="${PORT}" --reload
+        python3 start_server.py --mode development --host "${HOST}" --port "${PORT}"
         ;;
     
     production|prod)
@@ -136,21 +136,28 @@ case $MODE in
             pip install gunicorn
         fi
         
-        print_message "Workers: ${WORKERS}"
-        print_message "Timeout: ${TIMEOUT}s"
-        print_message "Access at: http://${HOST}:${PORT}"
+        # Build command for start_server.py
+        CMD_ARGS="--mode production --host ${HOST} --port ${PORT} --timeout ${TIMEOUT}"
+        
+        # Add auto-scaling or fixed worker configuration
+        if [ "${AUTO_SCALE}" = "true" ]; then
+            print_message "Worker Scaling: Auto (dynamic based on CPU and load)"
+            if [ ! -z "${MIN_WORKERS}" ]; then
+                CMD_ARGS="${CMD_ARGS} --min-workers ${MIN_WORKERS}"
+            fi
+            if [ ! -z "${MAX_WORKERS}" ]; then
+                CMD_ARGS="${CMD_ARGS} --max-workers ${MAX_WORKERS}"
+            fi
+        else
+            print_message "Workers: ${WORKERS} (fixed)"
+            CMD_ARGS="${CMD_ARGS} --no-autoscale --workers ${WORKERS}"
+        fi
+        
         print_message "Press Ctrl+C to stop"
         print_message "==================================================="
         
-        # Start Gunicorn
-        gunicorn \
-            --bind "${HOST}:${PORT}" \
-            --workers "${WORKERS}" \
-            --timeout "${TIMEOUT}" \
-            --access-logfile - \
-            --error-logfile - \
-            --log-level info \
-            wsgi:application
+        # Start with dynamic scaling
+        python3 start_server.py ${CMD_ARGS}
         ;;
     
     test)
