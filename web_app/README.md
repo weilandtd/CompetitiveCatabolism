@@ -2,31 +2,6 @@
 
 An interactive web application for simulating the multi nutrient model. 
 
-## Quick Start
-
-```bash
-cd web_app
-
-# Copy configuration template
-cp .env.example .env
-
-# Launch with auto-scaling
-./launch.sh
-
-# Or use the Python launcher directly
-python3 start_server.py --mode production --autoscale
-```
-
-## Configuration
-
-Edit `web_app/.env` to customize settings:
-- `AUTO_SCALE=true` - Automatically scale workers based on CPU/load
-- `WORKERS=4` - Fixed worker count (if AUTO_SCALE=false)
-- `MIN_WORKERS=2` - Minimum workers for auto-scaling
-- `MAX_WORKERS=16` - Maximum workers for auto-scaling
-- `HOST=0.0.0.0` - Bind address
-- `PORT=5000` - Server port
-
 ## Features
 
 The web app provides five types of simulations:
@@ -64,64 +39,19 @@ The web app provides five types of simulations:
 pip install -r requirements.txt
 ```
 
-## Running the Application
+## Deployment
 
-### Simple Launch (Recommended):
-```bash
-# From project root
-./launch.sh
-
-# From web_app directory
-cd web_app && ./launch.sh
-```
-
-### Development Mode:
-```bash
-./launch.sh development
-# or
-python3 start_server.py --mode development
-```
-
-### Production Mode with Auto-Scaling:
-```bash
-./launch.sh production
-# or
-python3 start_server.py --mode production --autoscale
-```
-
-### Advanced Options:
-```bash
-# Custom worker configuration
-python3 start_server.py --mode production --workers 8 --no-autoscale
-
-# Custom port
-python3 start_server.py --mode production --port 8000
-
-# Set worker limits
-python3 start_server.py --mode production --min-workers 2 --max-workers 12
-```
+The application is deployed using Apache with mod_wsgi. Contact your system administrator for server configuration and deployment details.
 
 ## File Structure
 
 - **`app.py`** - Main Flask application
-- **`wsgi.py`** - WSGI entry point for production servers
-- **`start_server.py`** - Dynamic server with auto-scaling workers
-- **`launch.sh`** - Simple launcher script
+- **`wsgi.py`** - WSGI entry point for Apache mod_wsgi
 - **`config.py`** - Configuration management
 - **`.env.example`** - Configuration template
 - **`test_app.py`** - Application tests
 - **`static/`** - CSS, JavaScript, images
 - **`template/`** - HTML templates
-
-The application will be available at `http://localhost:5000`
-
-### Production Mode
-
-Using Gunicorn (recommended for deployment):
-
-```bash
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
-```
 
 ## Project Structure
 
