@@ -45,8 +45,8 @@ class Config:
     TIMEOUT = int(os.environ.get('TIMEOUT', 120))
     
     # Paths
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    WEB_APP_DIR = os.path.join(BASE_DIR, 'web_app')
+    WEB_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = os.path.dirname(WEB_APP_DIR)
     MULTI_NUTRIENT_MODEL_DIR = os.path.join(BASE_DIR, 'multi_nutrient_model')
     
 

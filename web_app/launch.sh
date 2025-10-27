@@ -4,14 +4,17 @@
 
 set -e  # Exit on error
 
-# Script directory
+# Script directory (web_app)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$SCRIPT_DIR"
 
-# Load configuration from .env file if it exists
-if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
+# Load configuration from .env file if it exists (check current and parent dir)
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
+elif [ -f "$SCRIPT_DIR/../.env" ]; then
+    export $(grep -v '^#' "$SCRIPT_DIR/../.env" | xargs)
 fi
+
+cd "$SCRIPT_DIR"
 
 # Default values (used if not set in .env or environment)
 MODE="${MODE:-production}"

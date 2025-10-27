@@ -7,11 +7,11 @@ This file is used by WSGI servers like Gunicorn to serve the application
 import sys
 import os
 
-# Add the web_app directory to the Python path
-web_app_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web_app')
-sys.path.insert(0, web_app_dir)
+# Add the parent directory to path for multi_nutrient_model access
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parent_dir)
 
-# Import the Flask app
+# Import the Flask app from current directory
 from app import app as application
 
 # For backwards compatibility

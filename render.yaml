@@ -1,7 +1,0 @@
-
-services:
-  - type: web
-    name: Competitive Catabolism
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 --timeout 120 wsgi:application

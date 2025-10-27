@@ -16,15 +16,22 @@ from pathlib import Path
 
 def load_env_file():
     """Load environment variables from .env file if it exists"""
-    env_path = Path(__file__).parent / '.env'
-    if env_path.exists():
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    if key not in os.environ:
-                        os.environ[key] = value
+    # Check current directory first, then parent directory
+    env_paths = [
+        Path(__file__).parent / '.env',
+        Path(__file__).parent.parent / '.env'
+    ]
+    
+    for env_path in env_paths:
+        if env_path.exists():
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        if key not in os.environ:
+                            os.environ[key] = value
+            break
 
 
 def calculate_workers(auto_scale=True, min_workers=2, max_workers=None):
