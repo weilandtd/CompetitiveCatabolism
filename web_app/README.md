@@ -64,7 +64,11 @@ web_app/
 │   ├── insulin_clamp.html
 │   ├── tolerance_tests.html
 │   ├── obesity.html
-│   └── treatment.html
+│   ├── treatment.html
+│   ├── about.html         # About page
+│   ├── parameters.html    # Model parameters and rate equations
+│   ├── privacy.html       # Privacy policy
+│   └── terms.html         # Terms of service
 ├── static/
 │   └── style.css          # Shared stylesheet
 └── README.md
@@ -73,6 +77,10 @@ web_app/
 ## API Endpoints
 
 - `GET /` - Landing page
+- `GET /about` - About page
+- `GET /parameters` - Model parameters and rate equations page
+- `GET /privacy` - Privacy policy page
+- `GET /terms` - Terms of service page
 - `GET /dynamic_response` - Dynamic response simulation page
 - `GET /insulin_clamp` - Insulin clamp simulation page
 - `GET /tolerance_tests` - Tolerance tests page

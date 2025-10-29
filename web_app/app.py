@@ -172,6 +172,11 @@ def terms():
     """Terms of service page"""
     return render_template('terms.html')
 
+@app.route('/parameters')
+def parameters():
+    """Parameters description page"""
+    return render_template('parameters.html')
+
 @app.route('/dynamic_response')
 def dynamic_response():
     """Page for Type 1 Diabetes-like dynamic response simulation"""

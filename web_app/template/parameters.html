@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Model Parameters - Competitive Catabolism</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .parameters-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .parameters-table thead {
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+            color: white;
+        }
+        
+        .parameters-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .parameters-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+        }
+        
+        .parameters-table tr:hover {
+            background-color: #f0f9ff;
+        }
+        
+        .parameters-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .param-name {
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .param-symbol {
+            font-style: italic;
+            color: #0891b2;
+            font-family: 'Times New Roman', serif;
+            font-size: 1.1em;
+        }
+        
+        .param-description {
+            color: #475569;
+            line-height: 1.6;
+        }
+        
+        .category-header {
+            background: #e0f2fe !important;
+            font-weight: 700;
+            color: #0c4a6e;
+            font-size: 1.05em;
+        }
+        
+        .category-header td {
+            padding: 10px 15px !important;
+        }
+        
+        .info-section h2 {
+            color: #0f172a;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+            font-weight: 600;
+        }
+        
+        .info-section h3 {
+            color: #0c4a6e;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .parameters-table {
+                font-size: 12px;
+            }
+            
+            .parameters-table th,
+            .parameters-table td {
+                padding: 10px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Model Parameters</h1>
+        <a href="/" class="btn-secondary">← Back to Home</a>
+    </header>
+    
+    <div class="container">
+        <div class="info-section">
+            <h2>Model Parameters</h2>
+            <p>
+                The multi-nutrient model uses a set of parameters to describe metabolic processes and their regulation.
+                These parameters control rates of metabolic reactions, insulin secretion and action, and nutrient oxidation.
+                Below is a comprehensive list of all model parameters with their descriptions.
+            </p>
+        </div>
+        
+        <table class="parameters-table">
+            <thead>
+                <tr>
+                    <th style="width: 20%;">Parameter Name</th>
+                    <th style="width: 12%;">Default Value</th>
+                    <th style="width: 15%;">Units</th>
+                    <th style="width: 53%;">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Energy and Insulin Secretion -->
+                <tr class="category-header">
+                    <td colspan="4">Energy Expenditure & Insulin Secretion</td>
+                </tr>
+                <tr>
+                    <td class="param-name">v_energy</td>
+                    <td class="param-description">7</td>
+                    <td class="param-description">μmol min<sup>-1</sup> gBW<sup>-1</sup></td>
+                    <td class="param-description">Energy expenditure (ATP production rate)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">I_max</td>
+                    <td class="param-description">0.2</td>
+                    <td class="param-description">ng mL<sup>-1</sup> min<sup>-1</sup></td>
+                    <td class="param-description">Maximal insulin secretion rate</td>
+                </tr>
+                <tr>
+                    <td class="param-name">h</td>
+                    <td class="param-description">3.4</td>
+                    <td class="param-description">dimensionless</td>
+                    <td class="param-description">Hill coefficient for insulin secretion</td>
+                </tr>
+                <tr>
+                    <td class="param-name">C</td>
+                    <td class="param-description">16</td>
+                    <td class="param-description">mM</td>
+                    <td class="param-description">Half-maximal glucose concentration for insulin secretion</td>
+                </tr>
+                
+                <!-- Insulin Action Parameters -->
+                <tr class="category-header">
+                    <td colspan="4">Insulin Inhibition & Activation Constants</td>
+                </tr>
+                <tr>
+                    <td class="param-name">K_i_lipolysis</td>
+                    <td class="param-description">0.4</td>
+                    <td class="param-description">ng mL<sup>-1</sup></td>
+                    <td class="param-description">Inhibition constant for insulin action on lipolysis (K<sub>i</sub> = 1.0 × I₀). Higher values indicate weaker insulin inhibition of lipolysis.</td>
+                </tr>
+                <tr>
+                    <td class="param-name">K_i_ketogenesis</td>
+                    <td class="param-description">0.04</td>
+                    <td class="param-description">ng mL<sup>-1</sup></td>
+                    <td class="param-description">Inhibition constant for insulin action on ketogenesis (K<sub>i</sub> = 0.1 × I₀). Higher values indicate weaker insulin inhibition of ketogenesis.</td>
+                </tr>
+                <tr>
+                    <td class="param-name">K_a_glycolysis</td>
+                    <td class="param-description">4.0</td>
+                    <td class="param-description">ng mL<sup>-1</sup></td>
+                    <td class="param-description">Activation constant for insulin action on glycolysis (K<sub>a</sub> = 10 × I₀). Higher values indicate weaker insulin activation of glycolysis.</td>
+                </tr>
+                <tr>
+                    <td class="param-name">K_i_glycogenolysis</td>
+                    <td class="param-description">4.0</td>
+                    <td class="param-description">ng mL<sup>-1</sup></td>
+                    <td class="param-description">Inhibition constant for insulin action on glycogenolysis (K<sub>i</sub> = 10 × I₀). Higher values indicate weaker insulin inhibition of glycogenolysis.</td>
+                </tr>
+                
+                <!-- Metabolic Rate Constants -->
+                <tr class="category-header">
+                    <td colspan="4">Metabolic Rate Constants</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_glycolysis</td>
+                    <td class="param-description">0.0303</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for glycolysis (v<sub>glycolysis</sub> / ([G₀] × V<sub>G</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_lactate</td>
+                    <td class="param-description">0.0782</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for lactate production (v<sub>lactate</sub> / ([G₀] × V<sub>G</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_glucose</td>
+                    <td class="param-description">0.00736</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for glucose uptake (v<sub>glucose</sub> / ([G₀] × V<sub>G</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_fatty_acids</td>
+                    <td class="param-description">0.0415</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for fatty acid uptake (v<sub>fatty acids</sub> / ([L₀] × V<sub>L</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_3HB</td>
+                    <td class="param-description">—</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for 3HB (ketone) oxidation (v<sub>3HB</sub> / ([K₀] × V<sub>K</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_lipolysis</td>
+                    <td class="param-description">0.0500</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for lipolysis (v<sub>lipolysis</sub> / ([F₀] × V<sub>F</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_reesterification</td>
+                    <td class="param-description">0.0330</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for reesterification (v<sub>reesterification</sub> / ([L₀] × V<sub>L</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_ketogenesis</td>
+                    <td class="param-description">0.00745</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for ketogenesis (v<sub>ketogenesis</sub> / ([F₀] × V<sub>F</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">k_gluconeogenesis</td>
+                    <td class="param-description">0.0193</td>
+                    <td class="param-description">min<sup>-1</sup></td>
+                    <td class="param-description">Rate constant for gluconeogenesis (v<sub>gluconeogenesis</sub> / ([K₀] × V<sub>K</sub>))</td>
+                </tr>
+                <tr>
+                    <td class="param-name">V_glycogenolysis</td>
+                    <td class="param-description">56</td>
+                    <td class="param-description">nmol min<sup>-1</sup> gBW<sup>-1</sup></td>
+                    <td class="param-description">Maximal rate of glycogen breakdown (steady state flux)</td>
+                </tr>
+                
+                <!-- Infusion Rates -->
+                <tr class="category-header">
+                    <td colspan="4">Infusion Rates (for Clamp Experiments)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">R_insulin</td>
+                    <td class="param-description">0.0</td>
+                    <td class="param-description">ng mL<sup>-1</sup> min<sup>-1</sup></td>
+                    <td class="param-description">Insulin infusion rate (for clamp experiments)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">R_lactate</td>
+                    <td class="param-description">0.0</td>
+                    <td class="param-description">mM min<sup>-1</sup></td>
+                    <td class="param-description">Lactate infusion rate (for clamp experiments)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">R_glucose</td>
+                    <td class="param-description">0.0</td>
+                    <td class="param-description">mM min<sup>-1</sup></td>
+                    <td class="param-description">Glucose infusion rate (for clamp experiments)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">R_fatty_acids</td>
+                    <td class="param-description">0.0</td>
+                    <td class="param-description">mM min<sup>-1</sup></td>
+                    <td class="param-description">Fatty acid infusion rate (for clamp experiments)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">R_3HB</td>
+                    <td class="param-description">0.0</td>
+                    <td class="param-description">mM min<sup>-1</sup></td>
+                    <td class="param-description">3HB (ketone) infusion rate (for clamp experiments)</td>
+                </tr>
+                
+                <!-- On/Off Switches -->
+                <tr class="category-header">
+                    <td colspan="4">Insulin Action Switches (On/Off)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">insulin_action_lipolysis</td>
+                    <td class="param-description">True</td>
+                    <td class="param-description">boolean</td>
+                    <td class="param-description">Toggle insulin's inhibitory action on lipolysis (True = active, False = inactive)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">insulin_action_glycolysis</td>
+                    <td class="param-description">True</td>
+                    <td class="param-description">boolean</td>
+                    <td class="param-description">Toggle insulin's activating action on glycolysis (True = active, False = inactive)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">insulin_action_glycogenolysis</td>
+                    <td class="param-description">True</td>
+                    <td class="param-description">boolean</td>
+                    <td class="param-description">Toggle insulin's inhibitory action on glycogenolysis (True = active, False = inactive)</td>
+                </tr>
+                <tr>
+                    <td class="param-name">insulin_action_ketogenesis</td>
+                    <td class="param-description">True</td>
+                    <td class="param-description">boolean</td>
+                    <td class="param-description">Toggle insulin's inhibitory action on ketogenesis (True = active, False = inactive)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <footer class="site-footer">
+        <p>&copy; 2025 Competitive Catabolism Project. Licensed under Apache License 2.0.</p>
+        <div class="footer-links">
+            <a href="/about">About</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/terms">Terms of Service</a>
+        </div>
+    </footer>
+</body>
+</html>

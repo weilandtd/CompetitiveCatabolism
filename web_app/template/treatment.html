@@ -29,7 +29,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="disease_param">Additional Disease Parameter (Optional)</label>
+                    <label for="disease_param">Additional Disease Parameter (Optional) <a href="/parameters" style="color: #0891b2; font-size: 0.9em; font-weight: normal; text-decoration: none; border-bottom: 1px dotted #0891b2; transition: color 0.2s, border-color 0.2s;" onmouseover="this.style.color='#0e7490'; this.style.borderColor='#0e7490';" onmouseout="this.style.color='#0891b2'; this.style.borderColor='#0891b2';">(learn more)</a></label>
                     <select id="disease_param">
                         <option value="">None</option>
                         {% for param in parameter_names %}
