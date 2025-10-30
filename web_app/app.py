@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import sys
 import os
 import numpy as np
@@ -10,6 +10,16 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
+import secrets
+
+# Import visitor tracking utilities
+from utility import (
+    get_client_ip,
+    get_visitor_data,
+    track_unique_visitor,
+    update_active_visitor
+)
 
 # Add the multi_nutrient_model directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'multi_nutrient_model'))
@@ -40,6 +50,14 @@ vE = vATP
 
 
 app = Flask(__name__, template_folder='template', static_folder='static')
+app.secret_key = secrets.token_hex(16)  # For session management
+
+@app.before_request
+def track_visitor():
+    """Track unique visitors based on IP address"""
+    ip_address = get_client_ip()
+    if ip_address:
+        update_active_visitor(ip_address)
 
 # Set matplotlib style with larger fonts
 plt.rcParams.update({
@@ -155,7 +173,9 @@ def create_individual_plot(plot_func, **kwargs):
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    ip_address = get_client_ip()
+    is_new, total_count = track_unique_visitor(ip_address)
+    return render_template('index.html', visitor_count=total_count)
 
 @app.route('/about')
 def about():
@@ -1427,6 +1447,12 @@ def run_treatment():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/visitor_count', methods=['GET'])
+def api_visitor_count():
+    """Get the current visitor count (both total and active)"""
+    total, active = get_visitor_data()
+    return jsonify({'total': total, 'active': active})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

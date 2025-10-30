@@ -5,8 +5,127 @@
     <title>Competitive Catabolism - Multi-Nutrient Model Simulator</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .visitor-badge {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            border: 1px solid #0891b2;
+            min-width: 140px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .visitor-badge.hidden {
+            opacity: 0;
+            transform: translateY(-20px);
+            pointer-events: none;
+        }
+        
+        .visitor-badge h3 {
+            font-size: 10px;
+            color: #64748b;
+            margin: 0 0 6px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        
+        .visitor-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0;
+            padding: 4px 6px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-radius: 6px;
+        }
+        
+        .visitor-icon {
+            font-size: 16px;
+        }
+        
+        .visitor-info {
+            flex: 1;
+        }
+        
+        .visitor-label {
+            font-size: 9px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-weight: 500;
+            line-height: 1;
+        }
+        
+        .visitor-number {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0891b2;
+            line-height: 1.2;
+        }
+        
+        .pulse {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            margin-left: 3px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+        
+        @media (max-width: 768px) {
+            .visitor-badge {
+                position: fixed;
+                top: auto;
+                bottom: 15px;
+                left: 50%;
+                transform: translateX(-50%);
+                right: auto;
+                margin: 0;
+                max-width: 200px;
+            }
+            
+            .visitor-badge.hidden {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+                pointer-events: none;
+            }
+        }
+    </style>
 </head>
 <body>
+    <!-- Visitor Counter Badge -->
+    <div class="visitor-badge">
+        <h3>👋 Welcome!</h3>
+        <div class="visitor-stat">
+            <span class="visitor-icon">🟢</span>
+            <div class="visitor-info">
+                <div class="visitor-label">Online Now</div>
+                <div class="visitor-number"><span id="active-count">1</span><span class="pulse"></span></div>
+            </div>
+        </div>
+        <div class="visitor-stat">
+            <span class="visitor-icon">🌟</span>
+            <div class="visitor-info">
+                <div class="visitor-label">Total Visits</div>
+                <div class="visitor-number" id="total-count">{{ visitor_count }}</div>
+            </div>
+        </div>
+    </div>
+    
     <header>
         <h1>Explore Competitive Catabolism</h1>
         <p>An interactive simulator of mammalian fasted homeostasis</p>
@@ -80,5 +199,53 @@
             <a href="/terms">Terms of Service</a>
         </div>
     </footer>
+    
+    <script>
+        // Update visitor counts every 10 seconds
+        function updateVisitorCounts() {
+            fetch('/api/visitor_count')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('total-count').textContent = data.total;
+                    document.getElementById('active-count').textContent = data.active;
+                })
+                .catch(error => {
+                    console.error('Error fetching visitor count:', error);
+                });
+        }
+        
+        // Update on page load
+        updateVisitorCounts();
+        
+        // Update every 10 seconds
+        setInterval(updateVisitorCounts, 10000);
+        
+        // Hide badge when scrolling down
+        let lastScrollTop = 0;
+        const badge = document.querySelector('.visitor-badge');
+        const isMobile = window.innerWidth <= 768;
+        
+        window.addEventListener('scroll', function() {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            
+            if (isMobile) {
+                // On mobile, hide when scrolling in any direction
+                if (scrollTop > 50) {
+                    badge.classList.add('hidden');
+                } else {
+                    badge.classList.remove('hidden');
+                }
+            } else {
+                // On desktop, hide when scrolling down past 100px
+                if (scrollTop > 100 && scrollTop > lastScrollTop) {
+                    badge.classList.add('hidden');
+                } else if (scrollTop < 50) {
+                    badge.classList.remove('hidden');
+                }
+            }
+            
+            lastScrollTop = scrollTop;
+        });
+    </script>
 </body>
 </html>

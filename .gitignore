@@ -206,3 +206,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Visitor tracking data (contains hashed visitor information)
+web_app/visitor_ips.json
+web_app/active_visitors.json
+web_app/visitor_count.json
