@@ -2,16 +2,29 @@
 Utility functions for the Competitive Catabolism web application
 """
 
+import os
 import json
 import hashlib
+import tempfile
 from pathlib import Path
 from threading import Lock
 from datetime import datetime
 from flask import request
 
+# Use environment variable or fallback to temp directory
+DATA_DIR = Path(os.environ.get('VISITOR_DATA_DIR', tempfile.gettempdir())) / 'competitive_catabolism'
+
+# Create directory if it doesn't exist
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+except Exception as e:
+    # Fallback to system temp if we can't create the directory
+    print(f"Warning: Could not create {DATA_DIR}, using temp dir: {e}")
+    DATA_DIR = Path(tempfile.gettempdir())
+
 # Visitor tracking file paths
-VISITOR_IPS_FILE = Path(__file__).parent / 'visitor_ips.json'
-ACTIVE_VISITORS_FILE = Path(__file__).parent / 'active_visitors.json'
+VISITOR_IPS_FILE = DATA_DIR / 'visitor_ips.json'
+ACTIVE_VISITORS_FILE = DATA_DIR / 'active_visitors.json'
 visitor_lock = Lock()
 ACTIVE_TIMEOUT = 300  # 5 minutes in seconds
 
