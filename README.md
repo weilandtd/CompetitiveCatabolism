@@ -1,9 +1,11 @@
 # CompetitiveCatabolism
 This repository accompanies the paper "Competitive catabolism in systemic mammalian metabolic homeostasis" and contains the code and models used in the study, including the mechanistic multi‑nutrient model and the detailed mitochondrial model, together with simulation functions, Jupyter notebooks, and analysis scripts to reproduce figures and experiments.
 
+## Citation
+
 **Competitive catabolism in systemic metabolic homeostasis**  
-Daniel R. Weilandt, Won Dong Lee, Michael R. MacArthur, Lingfan Liang, Corey Holman, Qingwei Chu, Alexis J. Cowan, Joseph A. Baur, Ned S. Wingreen, and Joshua D. Rabinowitz *bioRxiv* (2025).  
-[Preprint link to be added]
+Daniel R. Weilandt, Won Dong Lee, Michael R MacArthur, Lingfan Liang, Corey Holman, Qingwei Chu, Alexis J. Cowan, Joseph A Baur, Ned S Wingreen, Joshua Rabinowitz  
+bioRxiv 2025.10.29.684184; doi: https://doi.org/10.1101/2025.10.29.684184
 
 ## Folder Structure
 
