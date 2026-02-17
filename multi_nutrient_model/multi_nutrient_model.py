@@ -46,6 +46,7 @@ PO2 = 5.0
 vO2 = 2000
 # ATP production rate
 vATP = PO2 * vO2 * 0.75
+vE = vATP
 
 def mass_and_energy_constraints(v, v_energy=1.0, 
                                 FG = 100/vATP, 
@@ -514,6 +515,108 @@ def insulin_clamp_dynamic(insulin_level,time,A,p=None, **kwargs):
     GIR["time"] = time
 
     return X, GIR
+
+
+def GTT_exponential_decay(p, X0=None, total_glucose=3.5, decay_rate=1/15, total_time=120):
+    """
+    Simulate glucose tolerance test with exponential decay absorption.
+    
+    Parameters:
+    -----------
+    p : array
+        Model parameters
+    X0 : array, optional
+        Initial conditions. If None, uses steady state from parameters p
+    total_glucose : float
+        Total amount of glucose to be absorbed (default: 3.5)
+    decay_rate : float
+        Decay rate constant k in R_glucose(t) = R0 * exp(-k*t) [1/min]
+        Default: 1/15 (time constant of 15 minutes)
+    total_time : float
+        Total simulation time in minutes (default: 120)
+        
+    Returns:
+    --------
+    perturbation_G : DataFrame
+        Simulation results with columns L, G, F, K, I, IA, time
+    """
+    
+    # Calculate R0 to achieve desired total glucose absorption
+    # Integral: ∫₀^∞ R0*exp(-k*t) dt = R0/k
+    # For finite time: ∫₀^T R0*exp(-k*t) dt = R0*(1 - exp(-k*T))/k ≈ total_glucose
+    R0 = total_glucose * decay_rate / (1 - np.exp(-decay_rate * total_time))
+    
+    # Initialize with steady state if not provided
+    if X0 is None:
+        X0 = steady_state(1, p)
+    
+    # Time-dependent glucose absorption: R_glucose(t) = R0 * exp(-k*t)
+    # Add to dGdt via array [0, R_glucose(t), 0, 0, 0, 0]
+    GTT_equation = lambda x, t, A, p: equation(x, A, p) + np.array([0, R0 * np.exp(-decay_rate * t), 0, 0, 0, 0])
+    
+    # Create time array
+    time = np.linspace(0, total_time, 500)
+    
+    # Integrate with time-dependent glucose absorption
+    sol_X = odeint(GTT_equation, X0, time, args=(1.0, p), rtol=1e-12)
+    
+    # Export to pandas dataframe
+    perturbation_G = pd.DataFrame(sol_X, columns=["L", "G", "F", "K", "I", "IA"])
+    perturbation_G["time"] = time
+    
+    return perturbation_G
+
+
+def ITT_exponential_decay(p, X0=None, total_insulin=3.0, decay_rate=1/15, total_time=120):
+    """
+    Simulate insulin tolerance test with exponential decay insulin infusion.
+    
+    Parameters:
+    -----------
+    p : array
+        Model parameters
+    X0 : array, optional
+        Initial conditions. If None, uses steady state from parameters p
+    total_insulin : float
+        Total amount of insulin to be infused (normalized, default: 60.0)
+        This is the peak insulin level relative to I0
+    decay_rate : float
+        Decay rate constant k in R_insulin(t) = R0 * exp(-k*t) [1/min]
+        Default: 1/15 (time constant of 15 minutes)
+    total_time : float
+        Total simulation time in minutes (default: 120)
+        
+    Returns:
+    --------
+    perturbation_I : DataFrame
+        Simulation results with columns L, G, F, K, I, IA, time
+    """
+    
+    # Calculate R0 to achieve desired total insulin infusion
+    # For exponential decay with initial bolus, we set initial insulin level
+    # and add exponentially decaying infusion
+    # Alternatively, use pure exponential infusion similar to GTT
+    R0 = total_insulin * decay_rate / (1 - np.exp(-decay_rate * total_time))
+    
+    # Initialize with steady state if not provided
+    if X0 is None:
+        X0 = steady_state(1, p)
+    
+    # Time-dependent insulin infusion: R_insulin(t) = R0 * exp(-k*t)
+    # Add to dIdt via array [0, 0, 0, 0, R_insulin(t), 0]
+    ITT_equation = lambda x, t, A, p: equation(x, A, p) + np.array([0, 0, 0, 0, R0 * np.exp(-decay_rate * t), 0])
+    
+    # Create time array
+    time = np.linspace(0, total_time, 500)
+    
+    # Integrate with time-dependent insulin infusion
+    sol_X = odeint(ITT_equation, X0, time, args=(1.0, p), rtol=1e-12)
+    
+    # Export to pandas dataframe
+    perturbation_I = pd.DataFrame(sol_X, columns=["L", "G", "F", "K", "I", "IA"])
+    perturbation_I["time"] = time
+    
+    return perturbation_I
 
 
 # Simulate the time response to a parameter perturbation
